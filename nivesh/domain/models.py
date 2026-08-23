@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -133,3 +133,25 @@ class AnalysisBundle(BaseModel):
     statements: DatasetResult[list[FinancialPeriod]]
     metrics: DatasetResult[dict[str, float | None]]
     scorecard: Scorecard | None = None
+
+
+class StatementDatasets(BaseModel):
+    """Raw statement datasets kept separate so one provider failure is isolated."""
+
+    model_config = ConfigDict(frozen=True)
+
+    income: DatasetResult[list[dict[str, Any]]]
+    balance: DatasetResult[list[dict[str, Any]]]
+    cash: DatasetResult[list[dict[str, Any]]]
+
+
+class ProviderBundle(BaseModel):
+    """Provider responses ready for normalization into an analysis bundle."""
+
+    model_config = ConfigDict(frozen=True)
+
+    symbol: str
+    profile: DatasetResult[CompanyProfile]
+    prices: DatasetResult[list[PricePoint]]
+    statements: StatementDatasets
+    metrics: DatasetResult[dict[str, float | None]]

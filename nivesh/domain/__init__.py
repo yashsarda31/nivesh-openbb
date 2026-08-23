@@ -8,7 +8,9 @@ from nivesh.domain.models import (
     FinancialPeriod,
     MetricScore,
     PricePoint,
+    ProviderBundle,
     Scorecard,
+    StatementDatasets,
 )
 
 __all__ = [
@@ -19,5 +21,7 @@ __all__ = [
     "FinancialPeriod",
     "MetricScore",
     "PricePoint",
+    "ProviderBundle",
     "Scorecard",
+    "StatementDatasets",
 ]
