@@ -1,0 +1,12 @@
+{
+  "name": "nivesh-financial-towers",
+  "private": true,
+  "scripts": {
+    "build:component": "node component_frontend/build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "gsap": "3.15.0",
+    "three": "0.185.1"
+  }
+}

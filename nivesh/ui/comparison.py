@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 import pandas as pd
 import streamlit as st
 
+from nivesh.components.financial_towers import render_financial_towers
 from nivesh.domain.models import AnalysisBundle
 from nivesh.services.comparison import build_comparison, normalized_price_frame
 from nivesh.ui.charts import comparison_figure
@@ -100,9 +101,13 @@ def render_comparison(
         },
     )
 
+    st.markdown("**Interactive score towers**")
     st.caption(
-        "The interactive 3D score view appears below when its local visualization "
-        "module is available."
+        "Tower height follows the selected score. Exact values remain in the table above."
+    )
+    render_financial_towers(
+        [tower.model_dump() for tower in payload.towers],
+        key="financial-towers",
     )
 
 

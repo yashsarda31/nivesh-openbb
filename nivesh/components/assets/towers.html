@@ -1,0 +1,23 @@
+<section class="tower-shell" data-testid="financial-towers" aria-label="Interactive company score towers">
+  <header class="tower-toolbar">
+    <div class="metric-controls" role="group" aria-label="Tower height metric">
+      <button type="button" data-metric="composite" aria-pressed="true" class="active">Composite</button>
+      <button type="button" data-metric="quality" aria-pressed="false">Quality</button>
+      <button type="button" data-metric="growth" aria-pressed="false">Growth</button>
+      <button type="button" data-metric="balance_sheet" aria-pressed="false">Balance sheet</button>
+      <button type="button" data-metric="valuation" aria-pressed="false">Valuation</button>
+    </div>
+    <button type="button" data-reset-view class="reset-view">Reset view</button>
+  </header>
+  <div class="tower-stage">
+    <canvas tabindex="0" aria-label="Rotate, zoom, or use arrow keys to inspect company towers"></canvas>
+    <div class="tower-labels" aria-hidden="true"></div>
+    <p class="tower-fallback" role="status" hidden></p>
+  </div>
+  <aside class="tower-detail" aria-live="polite">
+    <strong data-detail-name>Company</strong>
+    <span data-detail-metric>Composite</span>
+    <output data-detail-value>—</output>
+  </aside>
+  <p class="tower-help">Drag to rotate · scroll or pinch to zoom · arrow keys move between companies</p>
+</section>

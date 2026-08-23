@@ -112,7 +112,9 @@ def build_comparison(bundles: Sequence[AnalysisBundle]) -> ComparisonPayload:
             default=None,
         )
         rows.extend(_company_rows(bundle, latest))
-        towers.append(_tower_company(bundle))
+        tower = _tower_company(bundle)
+        towers.append(tower)
+        rows.extend(_score_rows(bundle, latest, tower))
         warnings.extend(
             f"{bundle.symbol}: {warning}"
             for warning in (*bundle.statements.warnings, *bundle.metrics.warnings)
@@ -221,6 +223,39 @@ def _tower_company(bundle: AnalysisBundle) -> TowerCompany:
     )
 
 
+def _score_rows(
+    bundle: AnalysisBundle,
+    latest: FinancialPeriod | None,
+    tower: TowerCompany,
+) -> list[ComparisonRow]:
+    scorecard = bundle.scorecard
+    provider = f"Nivesh {scorecard.methodology_version}" if scorecard else "Nivesh"
+    warnings = scorecard.warnings if scorecard else ("Scorecard unavailable",)
+    labels = {
+        "composite": "Composite score",
+        "quality": "Quality score",
+        "growth": "Growth score",
+        "balance_sheet": "Balance-sheet score",
+        "valuation": "Valuation score",
+    }
+    company = bundle.profile.data.name or bundle.symbol
+    return [
+        _row(
+            bundle,
+            company,
+            metric,
+            labels[metric],
+            value,
+            "score",
+            _period_label(latest),
+            provider,
+            None,
+            warnings,
+        )
+        for metric, value in tower.values.items()
+    ]
+
+
 def _component_value(bundle: AnalysisBundle, name: str) -> float | None:
     if bundle.scorecard is None:
         return None
@@ -248,5 +283,7 @@ def _display(value: float | None, format_kind: str, currency: str | None) -> str
         return f"{value:.1%}"
     if format_kind == "multiple":
         return f"{value:.2f}×"
+    if format_kind == "score":
+        return f"{value:.0f} / 100"
     prefix = "₹ " if currency == "INR" else ""
     return f"{prefix}{value / 10_000_000:,.0f} Cr"

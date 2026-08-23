@@ -66,3 +66,11 @@ def test_tower_payload_contains_only_finite_numbers_or_none(
     for company in payload.towers:
         assert len(company.symbol) <= 24
         assert all(value is None or math.isfinite(value) for value in company.values.values())
+        table_scores = {
+            row.metric: row.value
+            for row in payload.rows
+            if row.symbol == company.symbol
+            and row.metric
+            in {"composite", "quality", "growth", "balance_sheet", "valuation"}
+        }
+        assert table_scores == company.values
