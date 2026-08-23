@@ -14,6 +14,7 @@ from nivesh.services.analysis import (
     load_demo_analysis,
 )
 from nivesh.services.tickers import SymbolValidationError, resolve_symbol
+from nivesh.ui.comparison import render_compare_action, render_comparison
 from nivesh.ui.financials import render_financials
 from nivesh.ui.overview import render_overview
 from nivesh.ui.scores import render_scores
@@ -55,15 +56,19 @@ def run_app() -> None:
         _render_empty_state(settings.demo_mode)
         return
 
+    render_compare_action(bundle)
     st.space("small")
     view = st.segmented_control(
         "Workspace",
-        ["Overview", "Financials", "Score"],
+        ["Overview", "Financials", "Score", "Compare"],
         key="workspace_view",
         label_visibility="collapsed",
         persist_state="session",
     )
-    if view == "Financials":
+    if view == "Compare":
+        bundles_by_symbol = st.session_state.get("analysis_bundles", {})
+        render_comparison(bundles_by_symbol, st.session_state.compare_symbols)
+    elif view == "Financials":
         render_financials(bundle)
     elif view == "Score":
         render_scores(bundle)
@@ -78,6 +83,7 @@ def _initialize_state() -> None:
     st.session_state.setdefault("refresh_nonces", {})
     st.session_state.setdefault("analysis_error", None)
     st.session_state.setdefault("current_bundle", None)
+    st.session_state.setdefault("analysis_bundles", {})
     st.session_state.setdefault("workspace_view", "Overview")
 
 
@@ -134,6 +140,9 @@ def _handle_analysis(ticker: str, frequency: str, settings: AppSettings) -> None
 
     st.session_state.active_symbol = resolved.symbol
     st.session_state.current_bundle = bundle
+    bundles = dict(st.session_state.analysis_bundles)
+    bundles[resolved.symbol] = bundle
+    st.session_state.analysis_bundles = bundles
     st.session_state.analysis_error = None
     st.session_state.workspace_view = "Overview"
 

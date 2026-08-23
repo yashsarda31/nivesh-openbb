@@ -1,0 +1,252 @@
+"""Exact-value alignment and sanitized payloads for company comparison."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from math import isfinite
+
+import pandas as pd
+from pydantic import BaseModel, ConfigDict, Field
+
+from nivesh.domain.models import AnalysisBundle, FinancialPeriod
+
+
+class ComparisonRow(BaseModel):
+    """One exact company/metric observation with its provenance."""
+
+    model_config = ConfigDict(frozen=True)
+
+    symbol: str
+    company: str
+    metric: str
+    label: str
+    value: float | None
+    display_value: str
+    period: str | None
+    currency: str | None
+    provider: str
+    warning: str | None = None
+
+
+class TowerCompany(BaseModel):
+    """Allow-listed, finite comparison data safe to send to the browser."""
+
+    model_config = ConfigDict(frozen=True)
+
+    symbol: str = Field(max_length=24)
+    name: str = Field(max_length=80)
+    values: dict[str, float | None]
+
+
+class ComparisonPayload(BaseModel):
+    """All comparison views built from the same normalized analysis bundles."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rows: list[ComparisonRow]
+    towers: list[TowerCompany]
+    warnings: tuple[str, ...] = ()
+
+
+_STATEMENT_METRICS = {
+    "revenue": ("Revenue", "money"),
+    "net_income": ("Net income", "money"),
+    "free_cash_flow": ("Free cash flow", "money"),
+}
+_RATIO_METRICS = {
+    "operating_margin": ("Operating margin", "percent"),
+    "roe": ("Return on equity", "percent"),
+    "debt_equity": ("Debt / equity", "multiple"),
+    "current_ratio": ("Current ratio", "multiple"),
+}
+_PROVIDER_METRICS = {
+    "pe_ratio": ("P/E", "multiple"),
+    "price_to_book": ("Price / book", "multiple"),
+    "ev_to_ebitda": ("EV / EBITDA", "multiple"),
+    "fcf_yield": ("Free cash flow yield", "percent"),
+}
+
+
+def normalized_price_frame(bundles: Sequence[AnalysisBundle]) -> pd.DataFrame:
+    """Outer-align closes by date and index each company from its first valid price."""
+
+    series: list[pd.Series[float]] = []
+    for bundle in bundles:
+        points = sorted(bundle.prices.data, key=lambda point: point.date)
+        values = pd.Series(
+            data=[point.close if point.close > 0 else None for point in points],
+            index=pd.to_datetime([point.date for point in points]),
+            name=bundle.symbol,
+            dtype="float64",
+        )
+        if values.index.has_duplicates:
+            values = values.groupby(level=0).last()
+        first_valid = values.dropna()
+        if not first_valid.empty:
+            values = values / first_valid.iloc[0] * 100.0
+        series.append(values)
+
+    if not series:
+        return pd.DataFrame()
+    frame = pd.concat(series, axis=1, join="outer").sort_index()
+    frame.index.name = "Date"
+    return frame
+
+
+def build_comparison(bundles: Sequence[AnalysisBundle]) -> ComparisonPayload:
+    """Build exact table rows and a finite Three.js-ready payload for 2-4 companies."""
+
+    if not 2 <= len(bundles) <= 4:
+        raise ValueError("Comparison requires two to four companies.")
+    symbols = [bundle.symbol for bundle in bundles]
+    if len(set(symbols)) != len(symbols):
+        raise ValueError("Comparison companies must be unique.")
+
+    rows: list[ComparisonRow] = []
+    towers: list[TowerCompany] = []
+    warnings: list[str] = []
+    for bundle in bundles:
+        latest = max(
+            bundle.statements.data,
+            key=lambda item: item.period_ending,
+            default=None,
+        )
+        rows.extend(_company_rows(bundle, latest))
+        towers.append(_tower_company(bundle))
+        warnings.extend(
+            f"{bundle.symbol}: {warning}"
+            for warning in (*bundle.statements.warnings, *bundle.metrics.warnings)
+        )
+    return ComparisonPayload(rows=rows, towers=towers, warnings=tuple(dict.fromkeys(warnings)))
+
+
+def _company_rows(
+    bundle: AnalysisBundle, latest: FinancialPeriod | None
+) -> list[ComparisonRow]:
+    profile = bundle.profile.data
+    company = profile.name or bundle.symbol
+    period_label = _period_label(latest)
+    rows: list[ComparisonRow] = []
+
+    for key, (label, format_kind) in _STATEMENT_METRICS.items():
+        value = _finite(getattr(latest, key, None)) if latest else None
+        rows.append(
+            _row(
+                bundle,
+                company,
+                key,
+                label,
+                value,
+                format_kind,
+                period_label,
+                bundle.statements.provider,
+                bundle.statements.currency,
+                bundle.statements.warnings,
+            )
+        )
+    for key, (label, format_kind) in _RATIO_METRICS.items():
+        value = _finite(latest.metrics.get(key)) if latest else None
+        rows.append(
+            _row(
+                bundle,
+                company,
+                key,
+                label,
+                value,
+                format_kind,
+                period_label,
+                bundle.statements.provider,
+                bundle.statements.currency,
+                bundle.statements.warnings,
+            )
+        )
+    for key, (label, format_kind) in _PROVIDER_METRICS.items():
+        value = _finite(bundle.metrics.data.get(key))
+        rows.append(
+            _row(
+                bundle,
+                company,
+                key,
+                label,
+                value,
+                format_kind,
+                period_label,
+                bundle.metrics.provider,
+                bundle.metrics.currency,
+                bundle.metrics.warnings,
+            )
+        )
+    return rows
+
+
+def _row(
+    bundle: AnalysisBundle,
+    company: str,
+    metric: str,
+    label: str,
+    value: float | None,
+    format_kind: str,
+    period: str | None,
+    provider: str,
+    currency: str | None,
+    warnings: Sequence[str],
+) -> ComparisonRow:
+    return ComparisonRow(
+        symbol=bundle.symbol,
+        company=company,
+        metric=metric,
+        label=label,
+        value=value,
+        display_value=_display(value, format_kind, currency),
+        period=period,
+        currency=currency,
+        provider=provider,
+        warning=" · ".join(warnings) or None,
+    )
+
+
+def _tower_company(bundle: AnalysisBundle) -> TowerCompany:
+    scorecard = bundle.scorecard
+    values: dict[str, float | None] = {
+        "composite": _finite(scorecard.composite if scorecard else None),
+        "quality": _component_value(bundle, "quality"),
+        "growth": _component_value(bundle, "growth"),
+        "balance_sheet": _component_value(bundle, "balance"),
+        "valuation": _component_value(bundle, "valuation"),
+    }
+    return TowerCompany(
+        symbol=bundle.symbol[:24],
+        name=(bundle.profile.data.name or bundle.symbol)[:80],
+        values=values,
+    )
+
+
+def _component_value(bundle: AnalysisBundle, name: str) -> float | None:
+    if bundle.scorecard is None:
+        return None
+    component = bundle.scorecard.components.get(name)
+    return _finite(component.score if component else None)
+
+
+def _period_label(period: FinancialPeriod | None) -> str | None:
+    if period is None:
+        return None
+    return f"{period.fiscal_period or 'Period'} {period.fiscal_year or period.period_ending.year}"
+
+
+def _finite(value: float | int | None) -> float | None:
+    if value is None:
+        return None
+    number = float(value)
+    return number if isfinite(number) else None
+
+
+def _display(value: float | None, format_kind: str, currency: str | None) -> str:
+    if value is None:
+        return "—"
+    if format_kind == "percent":
+        return f"{value:.1%}"
+    if format_kind == "multiple":
+        return f"{value:.2f}×"
+    prefix = "₹ " if currency == "INR" else ""
+    return f"{prefix}{value / 10_000_000:,.0f} Cr"
