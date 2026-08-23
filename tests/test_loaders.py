@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import builtins
+import pickle
 from collections import Counter
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import pytest
 
-from nivesh.domain.models import DatasetResult, PricePoint
+from nivesh.domain.models import DatasetResult, PricePoint, RecordDataset, StatementDatasets
 from nivesh.services import loaders
 
 
@@ -25,6 +26,20 @@ class CountingGateway:
             retrieved_at=datetime.now(UTC),
             as_of=start_date,
         )
+
+
+def test_statement_datasets_are_cache_serializable() -> None:
+    dataset = RecordDataset(
+        data=[],
+        provider="yfinance",
+        retrieved_at=datetime.now(UTC),
+        coverage=0.0,
+    )
+    statements = StatementDatasets(income=dataset, balance=dataset, cash=dataset)
+
+    restored = pickle.loads(pickle.dumps(statements))
+
+    assert restored == statements
 
 
 def test_credentials_do_not_import_generated_openbb_sdk(

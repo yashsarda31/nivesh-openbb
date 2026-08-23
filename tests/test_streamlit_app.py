@@ -14,6 +14,7 @@ def test_demo_mode_is_explicitly_labelled(monkeypatch: pytest.MonkeyPatch) -> No
     app = AppTest.from_file(APP_PATH).run(timeout=20)
 
     assert not app.exception
+    assert not any("Missing Submit Button" in item.value for item in app.warning)
     assert any("Demo data" in item.value for item in app.info)
 
 
