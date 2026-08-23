@@ -1,0 +1,35 @@
+[project]
+name = "nivesh-openbb"
+version = "0.1.0"
+description = "India-first fundamental intelligence built on OpenBB"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "openbb==4.7.2",
+    "plotly==6.9.0",
+    "streamlit==1.61.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "e2e: browser-level application tests",
+    "live: bounded tests that call an external data provider",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "SIM", "UP"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
