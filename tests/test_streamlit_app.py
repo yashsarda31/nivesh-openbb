@@ -43,6 +43,19 @@ def test_valid_demo_company_renders_analysis_and_methodology(
     assert any("Research support" in item.value for item in app.caption)
 
 
+def test_refresh_preserves_active_demo_analysis(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("NIVESH_DEMO_MODE", "true")
+    app = AppTest.from_file(APP_PATH).run(timeout=20)
+    app.text_input(key="ticker_input").set_value("RELIANCE")
+    app.button(key="analyze_button").click().run(timeout=20)
+
+    app.button(key="refresh-current").click().run(timeout=20)
+
+    assert not app.exception
+    assert any("Reliance Industries Limited" in item.value for item in app.subheader)
+    assert app.session_state["refresh_nonces"] == {"demo:RELIANCE.NS": 1}
+
+
 def test_unsupported_demo_symbol_is_not_silently_replaced(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

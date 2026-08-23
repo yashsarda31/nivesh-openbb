@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
+from typing import Any
 
 import streamlit as st
 
@@ -10,8 +12,12 @@ from nivesh.config import AppSettings
 from nivesh.domain.models import AnalysisBundle
 from nivesh.services.analysis import (
     DemoSymbolUnavailableError,
-    fetch_live_analysis,
     load_demo_analysis,
+)
+from nivesh.services.loaders import (
+    bump_refresh_nonce,
+    configure_openbb_credentials,
+    load_analysis,
 )
 from nivesh.services.tickers import SymbolValidationError, resolve_symbol
 from nivesh.ui.comparison import render_compare_action, render_comparison
@@ -56,7 +62,18 @@ def run_app() -> None:
         _render_empty_state(settings.demo_mode)
         return
 
-    render_compare_action(bundle)
+    with st.container(horizontal=True, vertical_alignment="center"):
+        render_compare_action(bundle)
+        if st.button(
+            "Refresh data",
+            key="refresh-current",
+            icon=":material/refresh:",
+            type="tertiary",
+        ):
+            _refresh_current(bundle, settings)
+            refreshed = st.session_state.get("current_bundle")
+            if isinstance(refreshed, AnalysisBundle):
+                bundle = refreshed
     st.space("small")
     view = st.segmented_control(
         "Workspace",
@@ -124,11 +141,7 @@ def _handle_analysis(ticker: str, frequency: str, settings: AppSettings) -> None
     try:
         source = "demo data" if settings.demo_mode else settings.provider
         with st.spinner(f"Loading {resolved.symbol} from {source}..."):
-            bundle = (
-                load_demo_analysis(resolved.symbol, period)
-                if settings.demo_mode
-                else fetch_live_analysis(resolved.symbol, period, settings.provider)
-            )
+            bundle = _load_bundle(resolved.symbol, period, settings)
     except DemoSymbolUnavailableError as exc:
         st.session_state.analysis_error = str(exc)
         return
@@ -145,6 +158,49 @@ def _handle_analysis(ticker: str, frequency: str, settings: AppSettings) -> None
     st.session_state.analysis_bundles = bundles
     st.session_state.analysis_error = None
     st.session_state.workspace_view = "Overview"
+
+
+def _load_bundle(symbol: str, period: str, settings: AppSettings) -> AnalysisBundle:
+    if settings.demo_mode:
+        return load_demo_analysis(symbol, period)
+    configure_openbb_credentials(_openbb_secrets())
+    cache_key = f"{settings.provider}:{symbol}"
+    nonce = st.session_state.refresh_nonces.get(cache_key, 0)
+    return load_analysis(symbol, settings.provider, period, nonce)
+
+
+def _refresh_current(bundle: AnalysisBundle, settings: AppSettings) -> None:
+    provider = "demo" if settings.demo_mode else settings.provider
+    st.session_state.refresh_nonces = bump_refresh_nonce(
+        st.session_state.refresh_nonces,
+        bundle.symbol,
+        provider,
+    )
+    try:
+        refreshed = _load_bundle(
+            bundle.symbol,
+            bundle.statements.period or "annual",
+            settings,
+        )
+    except Exception as exc:
+        st.session_state.analysis_error = (
+            f"Refresh failed; the previous valid data remains visible: {exc}"
+        )
+        return
+    st.session_state.current_bundle = refreshed
+    saved = dict(st.session_state.analysis_bundles)
+    saved[bundle.symbol] = refreshed
+    st.session_state.analysis_bundles = saved
+    st.session_state.analysis_error = None
+    st.toast(f"Refreshed {bundle.symbol}")
+
+
+def _openbb_secrets() -> Mapping[str, Any]:
+    try:
+        section = st.secrets.get("openbb", {})
+    except Exception:
+        return {}
+    return section if isinstance(section, Mapping) else {}
 
 
 def _render_empty_state(demo_mode: bool) -> None:
