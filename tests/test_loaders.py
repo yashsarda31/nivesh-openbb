@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import builtins
 from collections import Counter
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
@@ -24,6 +25,23 @@ class CountingGateway:
             retrieved_at=datetime.now(UTC),
             as_of=start_date,
         )
+
+
+def test_credentials_do_not_import_generated_openbb_sdk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_import = builtins.__import__
+
+    def reject_generated_sdk(name, *args, **kwargs):
+        if name == "openbb":
+            raise PermissionError("read-only site-packages/openbb/.build.lock")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", reject_generated_sdk)
+
+    applied = loaders.configure_openbb_credentials({"fmp_api_key": "server-secret"})
+
+    assert applied == ("fmp_api_key",)
 
 
 def test_refresh_nonce_invalidates_only_selected_symbol(

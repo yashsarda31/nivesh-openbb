@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from math import isfinite
+from types import SimpleNamespace
 from typing import Any
+from warnings import catch_warnings, simplefilter
 
 from nivesh.domain.models import (
     CompanyProfile,
@@ -22,6 +25,82 @@ _METRIC_METADATA = {
     "reported_currency",
     "symbol",
 }
+_RUNTIME_CREDENTIALS: dict[str, Any] = {}
+
+
+def set_runtime_credentials(credentials: Mapping[str, str]) -> None:
+    """Update credentials consumed by the provider executor without importing the SDK."""
+
+    from pydantic import SecretStr
+
+    for key, value in credentials.items():
+        _RUNTIME_CREDENTIALS[key] = SecretStr(value)
+
+
+@dataclass(frozen=True)
+class _ExecutorOutput:
+    results: list[Any]
+    provider: str
+    warnings: tuple[str, ...]
+
+
+class _ExecutorRoute:
+    def __init__(self, executor: Any, model_name: str, credentials: Mapping[str, Any]) -> None:
+        self._executor = executor
+        self._model_name = model_name
+        self._credentials = credentials
+
+    def __call__(self, *, provider: str, **params: object) -> _ExecutorOutput:
+        from openbb_core.provider.utils.helpers import run_async
+
+        with catch_warnings(record=True) as caught:
+            simplefilter("always")
+            result = run_async(
+                self._executor.execute,
+                provider_name=provider,
+                model_name=self._model_name,
+                params=dict(params),
+                credentials=dict(self._credentials),
+            )
+        rows = getattr(result, "result", result)
+        if rows is None:
+            normalized_rows: list[Any] = []
+        elif isinstance(rows, list):
+            normalized_rows = rows
+        else:
+            normalized_rows = [rows]
+        return _ExecutorOutput(
+            results=normalized_rows,
+            provider=provider,
+            warnings=tuple(str(item.message) for item in caught),
+        )
+
+
+class _ProviderClient:
+    """OpenBB provider routes without the generated, self-writing SDK package."""
+
+    def __init__(self, executor: Any, credentials: Mapping[str, Any] | None = None) -> None:
+        shared_credentials = credentials if credentials is not None else {}
+
+        def route(model_name: str) -> _ExecutorRoute:
+            return _ExecutorRoute(executor, model_name, shared_credentials)
+
+        self.equity = SimpleNamespace(
+            profile=route("EquityInfo"),
+            price=SimpleNamespace(historical=route("EquityHistorical")),
+            fundamental=SimpleNamespace(
+                income=route("IncomeStatement"),
+                balance=route("BalanceSheet"),
+                cash=route("CashFlowStatement"),
+                metrics=route("KeyMetrics"),
+            ),
+        )
+
+    @classmethod
+    def from_extensions(cls) -> _ProviderClient:
+        from openbb_core.provider.query_executor import QueryExecutor
+
+        return cls(QueryExecutor(), _RUNTIME_CREDENTIALS)
 
 
 class OpenBBGateway:
@@ -33,11 +112,9 @@ class OpenBBGateway:
 
     @classmethod
     def from_openbb(cls, provider: str = "yfinance") -> OpenBBGateway:
-        """Construct the gateway lazily so unit tests do not import OpenBB."""
+        """Construct from OpenBB providers without generating files at runtime."""
 
-        from openbb import obb
-
-        return cls(client=obb, provider=provider)
+        return cls(client=_ProviderClient.from_extensions(), provider=provider)
 
     def _fetch_records(
         self,

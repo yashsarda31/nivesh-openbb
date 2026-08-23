@@ -16,7 +16,7 @@ from nivesh.domain.models import (
     ProviderBundle,
     StatementDatasets,
 )
-from nivesh.providers.openbb_gateway import OpenBBGateway
+from nivesh.providers.openbb_gateway import OpenBBGateway, set_runtime_credentials
 from nivesh.services.analysis import assemble_provider_bundle
 
 _SUPPORTED_CREDENTIALS = (
@@ -116,17 +116,19 @@ def configure_openbb_credentials(
 ) -> tuple[str, ...]:
     """Apply allow-listed non-empty provider keys server-side without logging values."""
 
-    if credentials is None:
-        from openbb import obb
-
-        openbb_app: Any = obb
-        credentials = openbb_app.user.credentials
-
     applied: list[str] = []
+    runtime_values: dict[str, str] = {}
     for key in _SUPPORTED_CREDENTIALS:
         value = secrets.get(key)
-        if not isinstance(value, str) or not value.strip() or not hasattr(credentials, key):
+        if not isinstance(value, str) or not value.strip():
             continue
-        setattr(credentials, key, value.strip())
+        if credentials is None:
+            runtime_values[key] = value.strip()
+        elif hasattr(credentials, key):
+            setattr(credentials, key, value.strip())
+        else:
+            continue
         applied.append(key)
+    if runtime_values:
+        set_runtime_credentials(runtime_values)
     return tuple(applied)
