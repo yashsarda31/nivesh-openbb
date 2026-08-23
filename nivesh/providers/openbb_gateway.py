@@ -244,7 +244,9 @@ class OpenBBGateway:
     def fetch_statements(self, symbol: str, period: str) -> StatementDatasets:
         """Fetch the three statements independently for partial rendering."""
 
-        common = {"symbol": symbol, "period": period, "limit": 8}
+        # openbb-yfinance caps the three statement models at limit<=5 (pydantic
+        # le=5). Sending limit=8 raises ValidationError before reaching yfinance.
+        common = {"symbol": symbol, "period": period, "limit": 5}
         fundamental = self.client.equity.fundamental
         return StatementDatasets(
             income=self._fetch_records("income", fundamental.income, **common),
