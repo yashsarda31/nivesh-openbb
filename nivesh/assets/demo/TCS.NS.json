@@ -1,0 +1,44 @@
+{
+  "symbol": "TCS.NS",
+  "profile": {
+    "symbol": "TCS.NS",
+    "name": "Tata Consultancy Services Limited",
+    "exchange": "NSE",
+    "sector": "Technology",
+    "industry": "Information technology services",
+    "currency": "INR",
+    "market_cap": 14200000000000,
+    "website": "https://www.tcs.com",
+    "description": "Global technology services, consulting and business solutions company."
+  },
+  "prices": [
+    {"date": "2025-09-01", "close": 3684.10, "volume": 1840000},
+    {"date": "2025-10-01", "close": 3748.55, "volume": 1760000},
+    {"date": "2025-11-03", "close": 3811.20, "volume": 1920000},
+    {"date": "2025-12-01", "close": 3896.40, "volume": 2050000},
+    {"date": "2026-01-02", "close": 3974.65, "volume": 1880000},
+    {"date": "2026-02-02", "close": 3912.30, "volume": 1730000},
+    {"date": "2026-03-02", "close": 4028.80, "volume": 2110000},
+    {"date": "2026-04-01", "close": 4086.15, "volume": 1980000},
+    {"date": "2026-05-04", "close": 4142.70, "volume": 1860000},
+    {"date": "2026-06-01", "close": 4218.45, "volume": 2240000},
+    {"date": "2026-07-01", "close": 4265.90, "volume": 2070000},
+    {"date": "2026-08-21", "close": 4322.35, "volume": 2310000}
+  ],
+  "annual_statements": [
+    {"period_ending": "2022-03-31", "fiscal_period": "FY", "fiscal_year": 2022, "currency": "INR", "revenue": 1917540000000, "operating_income": 489500000000, "ebitda": 512400000000, "net_income": 383270000000, "diluted_eps": 105.9, "total_assets": 1409240000000, "total_equity": 887180000000, "total_debt": 78100000000, "cash": 189500000000, "total_current_assets": 1184200000000, "total_current_liabilities": 502600000000, "operating_cash_flow": 432800000000, "capital_expenditure": -31200000000, "free_cash_flow": 401600000000},
+    {"period_ending": "2023-03-31", "fiscal_period": "FY", "fiscal_year": 2023, "currency": "INR", "revenue": 2254580000000, "operating_income": 548600000000, "ebitda": 573900000000, "net_income": 421470000000, "diluted_eps": 116.3, "total_assets": 1452980000000, "total_equity": 897500000000, "total_debt": 80200000000, "cash": 211300000000, "total_current_assets": 1218700000000, "total_current_liabilities": 528400000000, "operating_cash_flow": 472100000000, "capital_expenditure": -34400000000, "free_cash_flow": 437700000000},
+    {"period_ending": "2024-03-31", "fiscal_period": "FY", "fiscal_year": 2024, "currency": "INR", "revenue": 2408930000000, "operating_income": 590800000000, "ebitda": 617600000000, "net_income": 459080000000, "diluted_eps": 126.7, "total_assets": 1517320000000, "total_equity": 946400000000, "total_debt": 79600000000, "cash": 224700000000, "total_current_assets": 1270400000000, "total_current_liabilities": 551800000000, "operating_cash_flow": 510700000000, "capital_expenditure": -36700000000, "free_cash_flow": 474000000000},
+    {"period_ending": "2025-03-31", "fiscal_period": "FY", "fiscal_year": 2025, "currency": "INR", "revenue": 2553240000000, "operating_income": 635200000000, "ebitda": 663500000000, "net_income": 486200000000, "diluted_eps": 134.3, "total_assets": 1586400000000, "total_equity": 992100000000, "total_debt": 77200000000, "cash": 246800000000, "total_current_assets": 1325700000000, "total_current_liabilities": 573600000000, "operating_cash_flow": 548300000000, "capital_expenditure": -39100000000, "free_cash_flow": 509200000000},
+    {"period_ending": "2026-03-31", "fiscal_period": "FY", "fiscal_year": 2026, "currency": "INR", "revenue": 2748600000000, "operating_income": 694500000000, "ebitda": 724800000000, "net_income": 535700000000, "diluted_eps": 147.9, "total_assets": 1669300000000, "total_equity": 1054800000000, "total_debt": 74600000000, "cash": 278500000000, "total_current_assets": 1398400000000, "total_current_liabilities": 594200000000, "operating_cash_flow": 603200000000, "capital_expenditure": -42800000000, "free_cash_flow": 560400000000}
+  ],
+  "quarterly_statements": [
+    {"period_ending": "2025-03-31", "fiscal_period": "Q4", "fiscal_year": 2025, "currency": "INR", "revenue": 651300000000, "operating_income": 162400000000, "ebitda": 169700000000, "net_income": 124800000000, "diluted_eps": 34.5, "total_assets": 1586400000000, "total_equity": 992100000000, "total_debt": 77200000000, "cash": 246800000000, "total_current_assets": 1325700000000, "total_current_liabilities": 573600000000, "operating_cash_flow": 141700000000, "capital_expenditure": -10100000000, "free_cash_flow": 131600000000},
+    {"period_ending": "2025-06-30", "fiscal_period": "Q1", "fiscal_year": 2026, "currency": "INR", "revenue": 666800000000, "operating_income": 168200000000, "ebitda": 175500000000, "net_income": 129600000000, "diluted_eps": 35.8, "total_assets": 1607200000000, "total_equity": 1007200000000, "total_debt": 76500000000, "cash": 254900000000, "total_current_assets": 1342300000000, "total_current_liabilities": 578800000000, "operating_cash_flow": 146800000000, "capital_expenditure": -10400000000, "free_cash_flow": 136400000000},
+    {"period_ending": "2025-09-30", "fiscal_period": "Q2", "fiscal_year": 2026, "currency": "INR", "revenue": 678400000000, "operating_income": 171500000000, "ebitda": 179100000000, "net_income": 132100000000, "diluted_eps": 36.5, "total_assets": 1628500000000, "total_equity": 1023100000000, "total_debt": 75800000000, "cash": 262700000000, "total_current_assets": 1360500000000, "total_current_liabilities": 584100000000, "operating_cash_flow": 150500000000, "capital_expenditure": -10600000000, "free_cash_flow": 139900000000},
+    {"period_ending": "2025-12-31", "fiscal_period": "Q3", "fiscal_year": 2026, "currency": "INR", "revenue": 693700000000, "operating_income": 175300000000, "ebitda": 182900000000, "net_income": 135400000000, "diluted_eps": 37.4, "total_assets": 1649600000000, "total_equity": 1038900000000, "total_debt": 75100000000, "cash": 269800000000, "total_current_assets": 1378300000000, "total_current_liabilities": 589300000000, "operating_cash_flow": 153900000000, "capital_expenditure": -10800000000, "free_cash_flow": 143100000000},
+    {"period_ending": "2026-03-31", "fiscal_period": "Q4", "fiscal_year": 2026, "currency": "INR", "revenue": 709700000000, "operating_income": 179500000000, "ebitda": 187300000000, "net_income": 138600000000, "diluted_eps": 38.3, "total_assets": 1669300000000, "total_equity": 1054800000000, "total_debt": 74600000000, "cash": 278500000000, "total_current_assets": 1398400000000, "total_current_liabilities": 594200000000, "operating_cash_flow": 152000000000, "capital_expenditure": -11000000000, "free_cash_flow": 141000000000}
+  ],
+  "metrics": {"pe_ratio": 26.5, "price_to_book": 7.1, "ev_to_ebitda": 18.4, "fcf_yield": 0.039, "market_cap": 14200000000000},
+  "as_of": "2026-08-21"
+}
