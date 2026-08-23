@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import builtins
-import pickle
 from collections import Counter
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import pytest
 
-from nivesh.domain.models import DatasetResult, PricePoint, RecordDataset, StatementDatasets
+from nivesh.domain.models import DatasetResult, PricePoint, StatementDatasets
 from nivesh.services import loaders
 
 
@@ -28,18 +27,22 @@ class CountingGateway:
         )
 
 
-def test_statement_datasets_are_cache_serializable() -> None:
-    dataset = RecordDataset(
+def test_statement_cache_stores_plain_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    dataset = DatasetResult(
         data=[],
         provider="yfinance",
         retrieved_at=datetime.now(UTC),
         coverage=0.0,
     )
     statements = StatementDatasets(income=dataset, balance=dataset, cash=dataset)
+    gateway = SimpleNamespace(fetch_statements=lambda symbol, period: statements)
+    monkeypatch.setattr(loaders, "get_gateway", lambda provider: gateway)
 
-    restored = pickle.loads(pickle.dumps(statements))
+    loaders._load_statement_payload.clear()
+    payload = loaders._load_statement_payload("TCS.NS", "yfinance", "annual", 0)
 
-    assert restored == statements
+    assert type(payload) is dict
+    assert loaders.load_statements("TCS.NS", "yfinance", "annual", 0) == statements
 
 
 def test_credentials_do_not_import_generated_openbb_sdk(

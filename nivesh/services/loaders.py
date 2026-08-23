@@ -57,15 +57,28 @@ def load_prices(
 
 
 @st.cache_data(ttl=86_400, max_entries=256, show_spinner=False)
+def _load_statement_payload(
+    symbol: str,
+    provider: str,
+    period: str,
+    refresh_nonce: int,
+) -> dict[str, Any]:
+    """Cache statement data as plain values to avoid model pickle incompatibilities."""
+
+    statements = get_gateway(provider).fetch_statements(symbol, period)
+    return statements.model_dump(mode="json")
+
+
 def load_statements(
     symbol: str,
     provider: str,
     period: str,
     refresh_nonce: int,
 ) -> StatementDatasets:
-    """Load reported statements with a daily bounded cache."""
+    """Load reported statements from the daily plain-value cache."""
 
-    return get_gateway(provider).fetch_statements(symbol, period)
+    payload = _load_statement_payload(symbol, provider, period, refresh_nonce)
+    return StatementDatasets.model_validate(payload)
 
 
 @st.cache_data(ttl=21_600, max_entries=256, show_spinner=False)

@@ -135,18 +135,14 @@ class AnalysisBundle(BaseModel):
     scorecard: Scorecard | None = None
 
 
-class RecordDataset(DatasetResult[list[dict[str, Any]]]):
-    """Named provider-record result that remains pickleable for Streamlit caches."""
-
-
 class StatementDatasets(BaseModel):
     """Raw statement datasets kept separate so one provider failure is isolated."""
 
     model_config = ConfigDict(frozen=True)
 
-    income: RecordDataset
-    balance: RecordDataset
-    cash: RecordDataset
+    income: DatasetResult[list[dict[str, Any]]]
+    balance: DatasetResult[list[dict[str, Any]]]
+    cash: DatasetResult[list[dict[str, Any]]]
 
 
 class ProviderBundle(BaseModel):

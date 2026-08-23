@@ -15,7 +15,6 @@ from nivesh.domain.models import (
     DatasetResult,
     PricePoint,
     ProviderBundle,
-    RecordDataset,
     StatementDatasets,
 )
 
@@ -122,7 +121,7 @@ class OpenBBGateway:
         route_name: str,
         route: Callable[..., Any],
         **kwargs: object,
-    ) -> RecordDataset:
+    ) -> DatasetResult[list[dict[str, Any]]]:
         retrieved_at = datetime.now(UTC)
         try:
             output = route(provider=self.provider, **kwargs)
@@ -132,7 +131,7 @@ class OpenBBGateway:
             ]
             provider = str(getattr(output, "provider", None) or self.provider)
             warnings = tuple(self._warning_text(item) for item in (output.warnings or []))
-            return RecordDataset(
+            return DatasetResult(
                 data=records,
                 provider=provider,
                 retrieved_at=retrieved_at,
@@ -141,7 +140,7 @@ class OpenBBGateway:
                 coverage=1.0 if records else 0.0,
             )
         except Exception as exc:  # Provider packages expose multiple exception types.
-            return RecordDataset(
+            return DatasetResult(
                 data=[],
                 provider=self.provider,
                 retrieved_at=retrieved_at,
