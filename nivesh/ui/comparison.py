@@ -29,6 +29,7 @@ def render_compare_action(bundle: AnalysisBundle) -> None:
     ):
         st.session_state.compare_symbols = [*selected, bundle.symbol]
         st.toast(f"Added {bundle.symbol} to comparison")
+        st.rerun()
     if limit_reached and not already_added:
         st.caption("Comparison is limited to four companies.")
 

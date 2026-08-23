@@ -27,7 +27,7 @@
 .metric-controls { display: flex; gap: 6px; flex-wrap: wrap; }
 
 button {
-  min-height: 38px;
+  min-height: 44px;
   padding: 8px 13px;
   color: var(--st-text-color, #1d1d1f);
   background: color-mix(in srgb, var(--st-secondary-background-color, #fff) 86%, transparent);

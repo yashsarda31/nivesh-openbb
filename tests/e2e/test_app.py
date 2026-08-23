@@ -1,0 +1,108 @@
+"""Real-browser release contracts for desktop, mobile, motion, and WebGL fallback."""
+
+from __future__ import annotations
+
+import pytest
+from playwright.sync_api import ConsoleMessage, Page, expect
+
+
+def _capture_browser_errors(page: Page) -> list[str]:
+    errors: list[str] = []
+
+    def on_console(message: ConsoleMessage) -> None:
+        if message.type == "error":
+            errors.append(message.text)
+
+    page.on("console", on_console)
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    return errors
+
+
+def _analyze(page: Page, symbol: str) -> None:
+    ticker = page.get_by_label("NSE or BSE ticker")
+    ticker.fill(symbol)
+    page.get_by_role("button", name="Analyze").click()
+
+
+def _build_comparison(page: Page, app_url: str) -> None:
+    page.goto(app_url, wait_until="networkidle")
+    _analyze(page, "RELIANCE")
+    expect(page.get_by_text("Reliance Industries Limited")).to_be_visible()
+    page.get_by_role("button", name="Add RELIANCE.NS to comparison").click()
+    expect(page.get_by_role("button", name="In comparison", exact=False)).to_be_disabled()
+    _analyze(page, "TCS")
+    expect(page.get_by_text("Tata Consultancy Services Limited")).to_be_visible()
+    page.get_by_role("button", name="Add TCS.NS to comparison").click()
+    expect(page.get_by_role("button", name="In comparison", exact=False)).to_be_disabled()
+    page.get_by_role("radio", name="Compare", exact=True).click()
+    expect(page.get_by_text("Company comparison", exact=True)).to_be_visible()
+
+
+@pytest.mark.e2e
+def test_demo_analysis_and_comparison(page: Page, app_url: str) -> None:
+    errors = _capture_browser_errors(page)
+    _build_comparison(page, app_url)
+
+    expect(page.get_by_text("Demo data · not a live provider result", exact=False)).to_be_visible()
+    canvas = page.locator("[data-testid='financial-towers'] canvas")
+    expect(canvas).to_be_visible()
+    tower = page.locator("[data-testid='financial-towers']")
+    canvas.focus()
+    canvas.press("ArrowRight")
+    expect(tower.locator("[data-detail-name]")).to_contain_text("TCS.NS")
+    quality = tower.get_by_role("button", name="Quality", exact=True)
+    quality.focus()
+    quality.press("Enter")
+    expect(page.locator("[data-detail-metric]")).to_have_text("Quality")
+    for control in tower.get_by_role("button").all():
+        bounds = control.bounding_box()
+        assert bounds is not None and bounds["height"] >= 44
+    assert errors == []
+
+
+@pytest.mark.e2e
+def test_mobile_analysis_has_no_page_overflow(page: Page, app_url: str) -> None:
+    errors = _capture_browser_errors(page)
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(app_url, wait_until="networkidle")
+    _analyze(page, "RELIANCE")
+    expect(page.get_by_text("Reliance Industries Limited")).to_be_visible()
+
+    has_overflow = page.evaluate(
+        "document.documentElement.scrollWidth > document.documentElement.clientWidth"
+    )
+    assert has_overflow is False
+    assert errors == []
+
+
+@pytest.mark.e2e
+def test_reduced_motion_preserves_metric_state(page: Page, app_url: str) -> None:
+    errors = _capture_browser_errors(page)
+    page.emulate_media(reduced_motion="reduce")
+    _build_comparison(page, app_url)
+
+    assert page.evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches") is True
+    tower = page.locator("[data-testid='financial-towers']")
+    tower.get_by_role("button", name="Valuation", exact=True).click()
+    expect(tower.locator("[data-detail-metric]")).to_have_text("Valuation")
+    assert errors == []
+
+
+@pytest.mark.e2e
+def test_webgl_failure_keeps_exact_comparison_available(page: Page, app_url: str) -> None:
+    errors = _capture_browser_errors(page)
+    page.add_init_script(
+        """
+        const original = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+          if (String(type).startsWith('webgl')) return null;
+          return original.call(this, type, ...args);
+        };
+        """
+    )
+    _build_comparison(page, app_url)
+
+    expect(page.get_by_text("3D view unavailable", exact=False)).to_be_visible()
+    expect(page.get_by_text("Fundamental comparison", exact=True)).to_be_visible()
+    expect(page.locator("[data-testid='stDataFrame']")).to_be_visible()
+    assert errors == []

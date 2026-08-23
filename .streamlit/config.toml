@@ -5,11 +5,23 @@ backgroundColor = "#F7F7F5"
 secondaryBackgroundColor = "#FFFFFF"
 textColor = "#1D1D1F"
 font = "sans-serif"
+borderColor = "#D8DADC"
+baseRadius = "large"
+buttonRadius = "full"
+showWidgetBorder = true
+chartCategoricalColors = ["#0A7B66", "#2878FF", "#8A5CF6", "#D97706", "#637083"]
 
 [server]
 headless = true
 runOnSave = false
 maxUploadSize = 1
+fileWatcherType = "none"
+enableXsrfProtection = true
+enableCORS = true
 
 [browser]
 gatherUsageStats = false
+
+[client]
+showErrorDetails = "none"
+toolbarMode = "minimal"

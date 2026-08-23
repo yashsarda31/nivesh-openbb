@@ -74,7 +74,10 @@ export default function mountFinancialTowers(component) {
   const duration = reduceMotion ? 0 : 0.72;
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const context = canvas.getContext("webgl2", { alpha: true, antialias: true })
+      || canvas.getContext("webgl", { alpha: true, antialias: true });
+    if (!context) throw new Error("WebGL unavailable");
+    renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, alpha: true });
   } catch (_error) {
     canvas.hidden = true;
     if (fallback) {

@@ -26,6 +26,10 @@ def apply_styles() -> None:
         }
         [data-testid="stMetricLabel"] { color: var(--nivesh-muted); }
         [data-testid="stMetricValue"] { letter-spacing: -0.035em; }
+        .stButton button,
+        [data-testid="stFormSubmitButton"] button,
+        [data-testid="stSegmentedControl"] button,
+        [data-testid="stTextInput"] input { min-height: 44px; }
         .stPlotlyChart { border-radius: var(--nivesh-radius); overflow: hidden; }
         @media (max-width: 640px) {
           .stMainBlockContainer { padding-top: 1.25rem; }
