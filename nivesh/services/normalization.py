@@ -11,7 +11,10 @@ from nivesh.domain.models import FinancialPeriod
 from nivesh.services.ratios import average_balance, cagr, safe_divide
 
 INCOME_FIELDS = {
+    # openbb-yfinance reports revenue as total_revenue / operating_revenue.
     "revenue": "revenue",
+    "total_revenue": "revenue",
+    "operating_revenue": "revenue",
     "operating_income": "operating_income",
     "ebitda": "ebitda",
     "net_income": "net_income",
@@ -20,7 +23,13 @@ INCOME_FIELDS = {
 }
 BALANCE_FIELDS = {
     "total_assets": "total_assets",
+    # openbb-yfinance has no total_equity key; these are its equity variants,
+    # ordered from the most faithful to the loosest definition.
     "total_equity": "total_equity",
+    "stockholders_equity": "total_equity",
+    "common_stock_equity": "total_equity",
+    "total_common_equity": "total_equity",
+    "total_equity_non_controlling_interests": "total_equity",
     "total_debt": "total_debt",
     "cash_and_cash_equivalents": "cash",
     "cash_and_equivalents": "cash",
@@ -83,8 +92,14 @@ def _merge_records(
         if currency not in {None, ""}:
             row["currency"] = str(currency)
         for source, destination in field_map.items():
+            # Multiple source keys may target one destination (provider naming
+            # variants). Map order is the priority: the first non-None value wins.
+            if row.get(destination) is not None:
+                continue
             if source in record:
-                row[destination] = _number(record[source])
+                value = _number(record[source])
+                if value is not None:
+                    row[destination] = value
 
 
 def normalize_statements(

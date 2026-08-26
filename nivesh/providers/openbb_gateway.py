@@ -223,17 +223,27 @@ class OpenBBGateway:
 
         raw = self._fetch_records("profile", self.client.equity.profile, symbol=symbol)
         record = raw.data[0] if raw.data else {}
+
+        def first_text(*keys: str) -> str | None:
+            """Return the first available provider key, honoring naming variants."""
+
+            for key in keys:
+                if (text := self._optional_text(record.get(key))) is not None:
+                    return text
+            return None
+
         profile = CompanyProfile(
             symbol=str(record.get("symbol") or symbol),
-            name=self._optional_text(record.get("name")),
-            exchange=self._optional_text(record.get("exchange")),
-            sector=self._optional_text(record.get("sector")),
-            industry=self._optional_text(record.get("industry")),
-            currency=self._optional_text(record.get("currency")),
+            name=first_text("name"),
+            exchange=first_text("exchange", "stock_exchange"),
+            sector=first_text("sector", "sector_category"),
+            # openbb-yfinance names these industry_category / long_description.
+            industry=first_text("industry", "industry_category"),
+            currency=first_text("currency"),
             market_cap=self._optional_float(record.get("market_cap")),
-            website=self._optional_text(record.get("website")),
-            description=self._optional_text(
-                record.get("company_description") or record.get("description")
+            website=first_text("website", "company_url"),
+            description=first_text(
+                "company_description", "description", "long_description"
             ),
         )
         return DatasetResult(

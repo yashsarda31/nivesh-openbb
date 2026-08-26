@@ -42,6 +42,77 @@ def test_aligns_statements_by_period_ending() -> None:
     assert periods[-1].currency == "INR"
 
 
+def test_provider_field_name_variants_fill_revenue_and_equity() -> None:
+    """openbb-yfinance names revenue total_revenue and equity common_stock_equity."""
+
+    periods = normalize_statements(
+        income=[
+            {
+                "period_ending": "2025-03-31",
+                "total_revenue": 1_000.0,
+                "operating_income": 150.0,
+                "net_income": 80.0,
+            }
+        ],
+        balance=[
+            {
+                "period_ending": "2025-03-31",
+                "total_assets": 2_100.0,
+                "common_stock_equity": 1_000.0,
+                "total_debt": 400.0,
+            }
+        ],
+        cash=[],
+    )
+
+    assert periods[-1].revenue == 1_000.0
+    assert periods[-1].total_equity == 1_000.0
+
+
+def test_priority_order_prefers_canonical_keys_over_variants() -> None:
+    """Map order decides which provider variant fills a destination first."""
+
+    periods = normalize_statements(
+        income=[
+            {
+                "period_ending": "2025-03-31",
+                "revenue": 1_000.0,
+                "total_revenue": 999.0,
+            }
+        ],
+        balance=[
+            {
+                "period_ending": "2025-03-31",
+                "total_equity": 1_000.0,
+                "common_stock_equity": 800.0,
+            }
+        ],
+        cash=[],
+    )
+
+    assert periods[-1].revenue == 1_000.0
+    assert periods[-1].total_equity == 1_000.0
+
+
+def test_null_variant_does_not_block_fallback_value() -> None:
+    """A present-but-null variant must not shadow a later populated variant."""
+
+    periods = normalize_statements(
+        income=[{"period_ending": "2025-03-31", "revenue": None, "total_revenue": 750.0}],
+        balance=[
+            {
+                "period_ending": "2025-03-31",
+                "total_equity": None,
+                "total_common_equity": 500.0,
+            }
+        ],
+        cash=[],
+    )
+
+    assert periods[-1].revenue == 750.0
+    assert periods[-1].total_equity == 500.0
+
+
 def test_enriches_periods_with_average_balance_ratios() -> None:
     periods = normalize_statements(
         income=[

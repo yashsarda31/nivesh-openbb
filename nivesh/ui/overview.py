@@ -26,20 +26,36 @@ def render_overview(bundle: AnalysisBundle) -> None:
 
     latest = bundle.statements.data[-1] if bundle.statements.data else None
     ratios = latest.metrics if latest else {}
+    provider_metrics = bundle.metrics.data
     score = bundle.scorecard.composite if bundle.scorecard else None
+
+    def ratio(statement_key: str, *provider_keys: str) -> float | None:
+        """Prefer statement-derived ratios, falling back to provider metrics."""
+
+        value = ratios.get(statement_key)
+        if value is not None:
+            return value
+        for key in provider_keys:
+            if (provider_value := provider_metrics.get(key)) is not None:
+                return provider_value
+        return None
+
     with st.container(horizontal=True):
         st.metric("Nivesh score", _format_score(score), border=True)
         st.metric("Revenue", _format_money(latest.revenue if latest else None), border=True)
-        st.metric("ROE", _format_percent(ratios.get("roe")), border=True)
+        st.metric("ROE", _format_percent(ratio("roe", "return_on_equity")), border=True)
         st.metric(
             "Operating margin",
-            _format_percent(ratios.get("operating_margin")),
+            _format_percent(ratio("operating_margin", "operating_margin")),
             border=True,
         )
-        st.metric("P/E", _format_multiple(bundle.metrics.data.get("pe_ratio")), border=True)
+        st.metric("P/E", _format_multiple(provider_metrics.get("pe_ratio")), border=True)
         st.metric(
             "Debt / equity",
-            _format_multiple(ratios.get("debt_equity")),
+            _format_multiple(
+                ratio("debt_equity", "debt_to_equity_ratio")
+                or _percent_ratio(provider_metrics.get("debt_to_equity"))
+            ),
             border=True,
         )
 
@@ -133,6 +149,12 @@ def _format_percent(value: float | None) -> str:
 
 def _format_multiple(value: float | None) -> str:
     return f"{value:.2f}×" if value is not None else "—"
+
+
+def _percent_ratio(value: float | None) -> float | None:
+    """Convert a percentage-style provider ratio (10.2) to a ratio (0.102)."""
+
+    return value / 100.0 if value is not None else None
 
 
 def _format_money(value: float | None) -> str:

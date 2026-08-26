@@ -63,6 +63,33 @@ def test_profile_maps_provider_and_preserves_missing() -> None:
     assert result.as_of is not None
 
 
+def test_profile_reads_openbb_yfinance_key_variants() -> None:
+    """openbb-yfinance names identity fields industry_category / long_description."""
+
+    client = FakeOBB()
+    client.payloads["profile"] = [
+        {
+            "symbol": "TCS.NS",
+            "name": "Tata Consultancy Services Limited",
+            "stock_exchange": "NSI",
+            "sector": "Technology",
+            "industry_category": "Information Technology Services",
+            "currency": "INR",
+            "market_cap": 8_307_851_919_360.0,
+            "company_url": "https://www.tcs.com",
+            "long_description": "IT services and consulting company.",
+        }
+    ]
+    gateway = OpenBBGateway(client=client, provider="yfinance")
+
+    result = gateway.fetch_profile("TCS.NS")
+
+    assert result.data.industry == "Information Technology Services"
+    assert result.data.description == "IT services and consulting company."
+    assert result.data.website == "https://www.tcs.com"
+    assert result.data.exchange == "NSI"
+
+
 def test_prices_are_typed_and_keep_provider_date() -> None:
     gateway = OpenBBGateway(client=FakeOBB(), provider="yfinance")
 
