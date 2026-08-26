@@ -105,3 +105,21 @@ def test_credentials_apply_only_allowlisted_non_empty_values() -> None:
     assert credentials.fmp_api_key == "server-secret"
     assert credentials.intrinio_api_key is None
     assert not hasattr(credentials, "unknown_key")
+
+
+def test_provider_warnings_require_zero_coverage_and_message() -> None:
+    def dataset(coverage: float, warnings: tuple[str, ...]) -> DatasetResult[PricePoint]:
+        return DatasetResult(
+            data=[],
+            provider="yfinance",
+            retrieved_at=datetime.now(UTC),
+            coverage=coverage,
+            warnings=warnings,
+        )
+
+    healthy = dataset(1.0, ())
+    failed = dataset(0.0, ("income: provider unavailable",))
+    legitimately_empty = dataset(0.0, ())
+
+    assert loaders._has_provider_warnings((healthy, legitimately_empty)) is False
+    assert loaders._has_provider_warnings((healthy, failed)) is True

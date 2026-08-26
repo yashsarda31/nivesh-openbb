@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from math import isfinite
+from time import sleep
 from types import SimpleNamespace
 from typing import Any
 from warnings import catch_warnings, simplefilter
@@ -106,15 +107,35 @@ class _ProviderClient:
 class OpenBBGateway:
     """Translate OpenBB outputs into stable provider-neutral contracts."""
 
-    def __init__(self, client: Any, provider: str = "yfinance") -> None:
+    def __init__(
+        self,
+        client: Any,
+        provider: str = "yfinance",
+        *,
+        max_retries: int = 1,
+        retry_backoff_seconds: float = 1.5,
+    ) -> None:
         self.client = client
         self.provider = provider
+        self.max_retries = max(0, max_retries)
+        self.retry_backoff_seconds = max(0.0, retry_backoff_seconds)
 
     @classmethod
-    def from_openbb(cls, provider: str = "yfinance") -> OpenBBGateway:
+    def from_openbb(
+        cls,
+        provider: str = "yfinance",
+        *,
+        max_retries: int = 1,
+        retry_backoff_seconds: float = 1.5,
+    ) -> OpenBBGateway:
         """Construct from OpenBB providers without generating files at runtime."""
 
-        return cls(client=_ProviderClient.from_extensions(), provider=provider)
+        return cls(
+            client=_ProviderClient.from_extensions(),
+            provider=provider,
+            max_retries=max_retries,
+            retry_backoff_seconds=retry_backoff_seconds,
+        )
 
     def _fetch_records(
         self,
@@ -122,13 +143,34 @@ class OpenBBGateway:
         route: Callable[..., Any],
         **kwargs: object,
     ) -> DatasetResult[list[dict[str, Any]]]:
+        """Fetch one route with bounded retries for transient provider failures."""
+
         retrieved_at = datetime.now(UTC)
-        try:
-            output = route(provider=self.provider, **kwargs)
-            records = [
-                item.model_dump(exclude_none=False)
-                for item in (getattr(output, "results", None) or [])
-            ]
+        attempts = self.max_retries + 1
+        collected: list[str] = []
+        for attempt in range(1, attempts + 1):
+            try:
+                output = route(provider=self.provider, **kwargs)
+                records = [
+                    item.model_dump(exclude_none=False)
+                    for item in (getattr(output, "results", None) or [])
+                ]
+            except Exception as exc:  # Provider packages expose multiple exception types.
+                collected.append(f"{route_name}: {exc}")
+                if attempt < attempts:
+                    sleep(self.retry_backoff_seconds * attempt)
+                    continue
+                return DatasetResult(
+                    data=[],
+                    provider=self.provider,
+                    retrieved_at=retrieved_at,
+                    warnings=tuple(collected),
+                    coverage=0.0,
+                )
+            if not records and attempt < attempts:
+                # Rate-limited providers sometimes answer with silent empty payloads.
+                sleep(self.retry_backoff_seconds * attempt)
+                continue
             provider = str(getattr(output, "provider", None) or self.provider)
             warnings = tuple(self._warning_text(item) for item in (output.warnings or []))
             return DatasetResult(
@@ -136,17 +178,16 @@ class OpenBBGateway:
                 provider=provider,
                 retrieved_at=retrieved_at,
                 as_of=self._records_as_of(records),
-                warnings=warnings,
+                warnings=tuple(collected) + warnings,
                 coverage=1.0 if records else 0.0,
             )
-        except Exception as exc:  # Provider packages expose multiple exception types.
-            return DatasetResult(
-                data=[],
-                provider=self.provider,
-                retrieved_at=retrieved_at,
-                warnings=(f"{route_name}: {exc}",),
-                coverage=0.0,
-            )
+        return DatasetResult(
+            data=[],
+            provider=self.provider,
+            retrieved_at=retrieved_at,
+            warnings=tuple(collected),
+            coverage=0.0,
+        )
 
     @staticmethod
     def _warning_text(warning: object) -> str:

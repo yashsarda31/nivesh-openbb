@@ -20,6 +20,7 @@ class AppSettings(BaseModel):
     statement_ttl_seconds: int = Field(default=86_400, ge=0)
     request_timeout_seconds: int = Field(default=30, ge=1, le=120)
     max_retries: int = Field(default=1, ge=0, le=3)
+    retry_backoff_seconds: float = Field(default=1.5, ge=0.0)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> AppSettings:
@@ -34,4 +35,5 @@ class AppSettings(BaseModel):
             statement_ttl_seconds=int(mapping.get("NIVESH_STATEMENT_TTL", 86_400)),
             request_timeout_seconds=int(mapping.get("NIVESH_REQUEST_TIMEOUT", 30)),
             max_retries=int(mapping.get("NIVESH_MAX_RETRIES", 1)),
+            retry_backoff_seconds=float(mapping.get("NIVESH_RETRY_BACKOFF", 1.5)),
         )

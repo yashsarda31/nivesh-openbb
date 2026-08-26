@@ -101,14 +101,23 @@ class FakeRoute:
 
     def __call__(self, **kwargs: Any) -> FakeOutput:
         self.owner.calls.append((self.name, kwargs))
-        if self.name in self.owner.raise_on:
+        remaining_failures = self.owner.fail_times.get(self.name, 0)
+        if self.name in self.owner.raise_on or remaining_failures > 0:
+            if remaining_failures > 0:
+                self.owner.fail_times[self.name] = remaining_failures - 1
             raise RuntimeError(f"{self.name} provider unavailable")
+        empty_remaining = self.owner.empty_times.get(self.name, 0)
+        if empty_remaining > 0:
+            self.owner.empty_times[self.name] = empty_remaining - 1
+            return FakeOutput([])
         return FakeOutput(self.owner.payloads[self.name])
 
 
 class FakeOBB:
     def __init__(self) -> None:
         self.raise_on: set[str] = set()
+        self.fail_times: dict[str, int] = {}
+        self.empty_times: dict[str, int] = {}
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self.payloads = {
             "profile": PROFILE,

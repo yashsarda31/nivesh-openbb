@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from datetime import date, timedelta
 from typing import Any
 
 import streamlit as st
 
+from nivesh.config import AppSettings
 from nivesh.domain.models import (
     AnalysisBundle,
     CompanyProfile,
@@ -34,7 +36,12 @@ _SUPPORTED_CREDENTIALS = (
 def get_gateway(provider: str) -> OpenBBGateway:
     """Reuse one OpenBB client adapter per configured provider."""
 
-    return OpenBBGateway.from_openbb(provider=provider)
+    settings = AppSettings.from_mapping(dict(os.environ))
+    return OpenBBGateway.from_openbb(
+        provider=provider,
+        max_retries=settings.max_retries,
+        retry_backoff_seconds=settings.retry_backoff_seconds,
+    )
 
 
 @st.cache_data(ttl=21_600, max_entries=128, show_spinner=False)
@@ -108,7 +115,33 @@ def load_analysis(
         statements=load_statements(symbol, provider, period, refresh_nonce),
         metrics=load_metrics(symbol, provider, period, refresh_nonce),
     )
+    datasets: tuple[DatasetResult[Any], ...] = (
+        provider_bundle.profile,
+        provider_bundle.prices,
+        provider_bundle.statements.income,
+        provider_bundle.statements.balance,
+        provider_bundle.statements.cash,
+        provider_bundle.metrics,
+    )
+    if _has_provider_warnings(datasets):
+        _schedule_refresh_retry(symbol, provider)
     return assemble_provider_bundle(provider_bundle, period)
+
+
+def _has_provider_warnings(datasets: tuple[DatasetResult[Any], ...]) -> bool:
+    """Report whether any dataset failed through an explicit provider warning."""
+
+    return any(dataset.coverage <= 0.0 and dataset.warnings for dataset in datasets)
+
+
+def _schedule_refresh_retry(symbol: str, provider: str) -> None:
+    """Refetch failed datasets on the next interaction instead of after the TTL."""
+
+    try:
+        current = dict(st.session_state.refresh_nonces)
+    except Exception:  # No active Streamlit session context (unit tests, scripts).
+        return
+    st.session_state.refresh_nonces = bump_refresh_nonce(current, symbol, provider)
 
 
 def bump_refresh_nonce(

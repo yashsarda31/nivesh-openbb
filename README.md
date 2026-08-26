@@ -114,6 +114,7 @@ The image uses Python 3.11 slim, installs pinned runtime dependencies, runs as t
 ## Troubleshooting
 
 - No price or fundamental data: open Data health and read the provider warning, source date, and coverage before retrying. Free routes may be rate-limited or unsupported.
+- Data missing on Streamlit Community Cloud: shared cloud IPs are throttled more aggressively than residential ones. Transient failures are retried with backoff, and any dataset that still fails schedules a fresh refetch on your next interaction instead of staying cached until its TTL expires. Use Refresh data for an immediate retry.
 - A score is withheld: inspect the methodology drawer. Nivesh deliberately withholds low-coverage results.
 - A ticker is rejected: use an NSE symbol containing supported letters, digits, `&`, or `-`, an explicit `.NS` suffix, or a six-digit `.BO` code.
 - 3D view unavailable: the exact indexed chart and comparison table remain usable; update browser graphics support if the 3D view is desired.

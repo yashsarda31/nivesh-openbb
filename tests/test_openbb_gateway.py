@@ -93,3 +93,59 @@ def test_metrics_keep_unavailable_values_as_none() -> None:
 
     assert result.data["pe_ratio"] == 24.0
     assert result.data["price_to_book"] is None
+
+
+def test_transient_failure_is_retried_and_recovers() -> None:
+    """One throttled attempt must not become an empty cached dataset."""
+
+    client = FakeOBB()
+    client.fail_times["profile"] = 1
+    gateway = OpenBBGateway(
+        client=client,
+        provider="yfinance",
+        max_retries=2,
+        retry_backoff_seconds=0.0,
+    )
+
+    result = gateway.fetch_profile("RELIANCE.NS")
+
+    assert result.data.name == "Reliance Industries Limited"
+    assert result.coverage == 1.0
+    assert sum(1 for name, _ in client.calls if name == "profile") == 2
+    # The recovered attempt stays visible in Data health without failing the dataset.
+    assert any("profile provider unavailable" in warning for warning in result.warnings)
+
+
+def test_permanent_failure_exhausts_retries_with_warning() -> None:
+    client = FakeOBB()
+    client.raise_on.add("income")
+    gateway = OpenBBGateway(
+        client=client,
+        provider="yfinance",
+        max_retries=1,
+        retry_backoff_seconds=0.0,
+    )
+
+    result = gateway.fetch_statements("RELIANCE.NS", "annual")
+
+    assert result.income.data == []
+    assert sum(1 for name, _ in client.calls if name == "income") == 2
+    assert "income provider unavailable" in " ".join(result.income.warnings)
+
+
+def test_silent_empty_result_is_retried_before_final_answer() -> None:
+    """Rate-limited providers sometimes answer with empty payloads."""
+
+    client = FakeOBB()
+    client.empty_times["prices"] = 1
+    gateway = OpenBBGateway(
+        client=client,
+        provider="yfinance",
+        max_retries=1,
+        retry_backoff_seconds=0.0,
+    )
+
+    result = gateway.fetch_prices("RELIANCE.NS", start_date=date(2026, 8, 1))
+
+    assert len(result.data) == 2
+    assert sum(1 for name, _ in client.calls if name == "prices") == 2
