@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 import pandas as pd
+import plotly.graph_objects as go
 
 from nivesh.domain.models import FinancialPeriod, PricePoint
 from nivesh.ui.charts import (
@@ -32,9 +33,12 @@ def _periods() -> list[FinancialPeriod]:
     ]
 
 
-def test_financial_chart_keeps_exact_values() -> None:
+def test_financial_chart_uses_grouped_bars_with_exact_values() -> None:
     figure = financial_trend_figure(_periods(), ["revenue", "net_income"])
 
+    assert isinstance(figure.data[0], go.Bar)
+    assert isinstance(figure.data[1], go.Bar)
+    assert figure.layout.barmode == "group"
     assert list(figure.data[0].y) == [800.0, 1_000.0]
     assert list(figure.data[1].y) == [80.0, 110.0]
     assert figure.layout.hovermode == "x unified"
@@ -43,6 +47,8 @@ def test_financial_chart_keeps_exact_values() -> None:
 def test_margin_chart_keeps_decimal_values_for_exact_hover() -> None:
     figure = margin_figure(_periods(), ["operating_margin", "net_margin"])
 
+    assert isinstance(figure.data[0], go.Bar)
+    assert figure.layout.barmode == "group"
     assert list(figure.data[0].y) == [0.12, 0.14]
     assert figure.layout.yaxis.tickformat == ".0%"
 

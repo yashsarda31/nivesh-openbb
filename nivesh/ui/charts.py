@@ -59,18 +59,17 @@ def financial_trend_figure(
     for index, metric in enumerate(metrics):
         values = [getattr(period, metric, None) for period in ordered]
         figure.add_trace(
-            go.Scatter(
+            go.Bar(
                 x=[period.period_ending for period in ordered],
                 y=values,
                 name=METRIC_LABELS.get(metric, metric.replace("_", " ").title()),
-                mode="lines+markers",
-                line={"color": SERIES_COLORS[index % len(SERIES_COLORS)], "width": 2.5},
-                marker={"size": 7},
-                connectgaps=False,
+                marker_color=SERIES_COLORS[index % len(SERIES_COLORS)],
                 hovertemplate="%{y:,.2f}<extra>%{fullData.name}</extra>",
             )
         )
-    return _apply_layout(figure, y_title="Reported value")
+    figure = _apply_layout(figure, y_title="Reported value")
+    figure.update_layout(barmode="group")
+    return figure
 
 
 def margin_figure(
@@ -85,19 +84,17 @@ def margin_figure(
     figure = go.Figure()
     for index, metric in enumerate(metrics):
         figure.add_trace(
-            go.Scatter(
+            go.Bar(
                 x=[period.period_ending for period in ordered],
                 y=[period.metrics.get(metric) for period in ordered],
                 name=METRIC_LABELS.get(metric, metric.replace("_", " ").title()),
-                mode="lines+markers",
-                line={"color": SERIES_COLORS[index % len(SERIES_COLORS)], "width": 2.5},
-                marker={"size": 7},
-                connectgaps=False,
+                marker_color=SERIES_COLORS[index % len(SERIES_COLORS)],
                 hovertemplate="%{y:.2%}<extra>%{fullData.name}</extra>",
             )
         )
     figure = _apply_layout(figure, y_title="Margin")
     figure.update_yaxes(tickformat=".0%")
+    figure.update_layout(barmode="group")
     return figure
 
 

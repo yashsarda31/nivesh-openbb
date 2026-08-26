@@ -78,6 +78,32 @@ def test_negative_valuation_multiples_are_unavailable() -> None:
     assert valuation.score is None
 
 
+def test_valuation_derives_pe_from_market_cap_and_reported_earnings() -> None:
+    """Providers can drop the whole metrics row; P/E still derives from statements."""
+
+    period = _latest_period()
+    period = period.model_copy(update={"net_income": 80.0})
+
+    scorecard = score_company(
+        [period],
+        {"market_cap": 1_000.0},
+        sector="Industrials",
+    )
+
+    pe_score = scorecard.components["valuation"].metrics["pe_ratio"]
+    assert pe_score.raw_value == pytest.approx(12.5)
+    assert pe_score.score == transform_metric(12.5, (50.0, 35.0, 25.0, 18.0, 10.0), "lower")
+
+
+def test_valuation_does_not_derive_pe_from_loss_making_periods() -> None:
+    period = _latest_period()
+    period = period.model_copy(update={"net_income": -80.0})
+
+    scorecard = score_company([period], {"market_cap": 1_000.0}, sector="Industrials")
+
+    assert scorecard.components["valuation"].metrics["pe_ratio"].raw_value is None
+
+
 def test_financial_sector_excludes_non_comparable_balance_component() -> None:
     period = _latest_period(
         roe=0.20,

@@ -8,7 +8,13 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
-from nivesh.domain.models import AnalysisBundle, DatasetResult
+from nivesh.domain.models import (
+    AnalysisBundle,
+    CompanyProfile,
+    DatasetResult,
+    FinancialPeriod,
+)
+from nivesh.services.ratios import price_to_earnings
 from nivesh.ui.charts import price_figure
 
 
@@ -40,6 +46,7 @@ def render_overview(bundle: AnalysisBundle) -> None:
                 return provider_value
         return None
 
+    pe_value, pe_derived = _pe_with_fallback(provider_metrics, profile, latest)
     with st.container(horizontal=True):
         st.metric("Nivesh score", _format_score(score), border=True)
         st.metric("Revenue", _format_money(latest.revenue if latest else None), border=True)
@@ -49,7 +56,7 @@ def render_overview(bundle: AnalysisBundle) -> None:
             _format_percent(ratio("operating_margin", "operating_margin")),
             border=True,
         )
-        st.metric("P/E", _format_multiple(provider_metrics.get("pe_ratio")), border=True)
+        st.metric("P/E", _format_pe(pe_value, derived=pe_derived), border=True)
         st.metric(
             "Debt / equity",
             _format_multiple(
@@ -149,6 +156,32 @@ def _format_percent(value: float | None) -> str:
 
 def _format_multiple(value: float | None) -> str:
     return f"{value:.2f}×" if value is not None else "—"
+
+
+def _pe_with_fallback(
+    provider_metrics: dict[str, float | None],
+    profile: CompanyProfile,
+    latest: FinancialPeriod | None,
+) -> tuple[float | None, bool]:
+    """Return the P/E multiple plus whether it was derived from statements.
+
+    openbb-yfinance drops its whole KeyMetrics row when any field such as
+    ``52WeekChange`` is missing, so derive P/E from market cap over the
+    latest reported net income when the provider value is unavailable.
+    """
+
+    if (provider_pe := provider_metrics.get("pe_ratio")) is not None:
+        return provider_pe, False
+    if latest is None:
+        return None, False
+    market_cap = provider_metrics.get("market_cap") or profile.market_cap
+    derived = price_to_earnings(market_cap, latest.net_income)
+    return derived, derived is not None
+
+
+def _format_pe(value: float | None, *, derived: bool) -> str:
+    text = _format_multiple(value)
+    return f"≈ {text}" if derived and value is not None else text
 
 
 def _percent_ratio(value: float | None) -> float | None:

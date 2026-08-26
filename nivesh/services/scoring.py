@@ -12,6 +12,7 @@ from nivesh.domain.models import (
     MetricScore,
     Scorecard,
 )
+from nivesh.services.ratios import price_to_earnings
 
 Direction = Literal["higher", "lower"]
 
@@ -175,6 +176,13 @@ def score_company(
         inputs = {**latest.metrics, **inputs}
         if inputs.get("fcf_yield") is None:
             inputs["fcf_yield"] = _derive_fcf_yield(latest, provider_metrics)
+        # Some providers (openbb-yfinance KeyMetrics) drop the whole row when
+        # one field is missing, so P/E can be absent even with usable inputs.
+        if _first_value(inputs, ("pe_ratio", "price_earnings", "price_to_earnings")) is None:
+            inputs["pe_ratio"] = price_to_earnings(
+                _first_value(provider_metrics, ("market_cap", "market_capitalization")),
+                latest.net_income,
+            )
 
     financial_company = _is_financial_sector(sector)
     components: dict[str, ComponentScore] = {}

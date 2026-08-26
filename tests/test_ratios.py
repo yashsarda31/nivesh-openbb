@@ -4,13 +4,21 @@ import pytest
 
 from nivesh.domain.models import FinancialPeriod
 from nivesh.services.normalization import enrich_periods
-from nivesh.services.ratios import average_balance, cagr, safe_divide
+from nivesh.services.ratios import average_balance, cagr, price_to_earnings, safe_divide
 
 
 def test_safe_divide_distinguishes_missing_and_zero() -> None:
     assert safe_divide(None, 10.0) is None
     assert safe_divide(0.0, 10.0) == 0.0
     assert safe_divide(10.0, 0.0) is None
+
+
+def test_price_to_earnings_requires_positive_inputs() -> None:
+    assert price_to_earnings(1_000.0, 80.0) == pytest.approx(12.5)
+    assert price_to_earnings(1_000.0, -80.0) is None
+    assert price_to_earnings(1_000.0, None) is None
+    assert price_to_earnings(None, 80.0) is None
+    assert price_to_earnings(1_000.0, 0.0) is None
 
 
 def test_average_balance_uses_both_periods() -> None:

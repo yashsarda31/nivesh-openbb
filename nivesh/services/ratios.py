@@ -14,6 +14,14 @@ def safe_divide(numerator: float | None, denominator: float | None) -> float | N
     return result if isfinite(result) else None
 
 
+def price_to_earnings(market_cap: float | None, earnings: float | None) -> float | None:
+    """Derive P/E only from a positive market cap and positive earnings."""
+
+    if earnings is None or earnings <= 0 or market_cap is None or market_cap <= 0:
+        return None
+    return safe_divide(market_cap, earnings)
+
+
 def average_balance(current: float | None, previous: float | None) -> float | None:
     """Return an average balance, falling back to the available period."""
 
