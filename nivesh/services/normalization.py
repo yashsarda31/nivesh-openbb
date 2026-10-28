@@ -163,7 +163,8 @@ def enrich_periods(
                     period.total_debt, positive_average(period.total_equity, None)
                 ),
                 "current_ratio": safe_divide(
-                    period.total_current_assets, period.total_current_liabilities
+                    period.total_current_assets,
+                    positive_average(period.total_current_liabilities, None),
                 ),
                 "cash_conversion": safe_divide(
                     period.operating_cash_flow, positive_average(period.net_income, None)

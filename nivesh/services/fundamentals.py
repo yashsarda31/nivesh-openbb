@@ -55,6 +55,10 @@ def fundamental_inputs(
             inputs["cash_conversion"] = None
         if latest.total_debt is not None and latest.total_equity is not None:
             inputs["debt_equity"] = latest.metrics.get("debt_equity")
+        if latest.total_equity is not None and latest.total_equity <= 0:
+            inputs["debt_equity"] = None
+        if latest.total_current_liabilities is not None and latest.total_current_liabilities <= 0:
+            inputs["current_ratio"] = None
         cap = _number(market_cap) if market_cap is not None else inputs.get("market_cap")
         window = trailing_quarters(rows) if frequency in {"quarter", "quarterly"} else [latest]
         if inputs.get("pe_ratio") is None:
