@@ -30,3 +30,9 @@ Python 3.11, Streamlit 1.66.1:
 Target: GitHub `yashsarda31/nivesh-openbb`, branch `main`, Streamlit `https://niveshopen.streamlit.app/`. Publication and deployed behavior are recorded separately after verification.
 
 GitHub application changes were published as `777f93e`. Streamlit installed the updated main branch and Streamlit 1.66.1/Pillow 13.0.0. Its fresh resolver also selected websockets 17.3 with uvicorn 0.40.0; startup diagnostics identified an incompatible reverse-proxy handshake. Pinning the already locally tested websockets 16.1.1 fixes that deployment difference. PyArrow 24.0.0 is also pinned to the tested version; the cloud bootstrap had automatically replaced 26.0.0 due to its reported crash issue.
+
+Runtime pins were published as `4e6e0d8`. The pinned requirements audit found no known vulnerabilities, and all six browser tests passed again before publication. Streamlit startup confirmed Streamlit 1.66.1, websockets 16.1.1 and PyArrow 24.0.0 on its existing Python 3.14.9 environment.
+
+**Live verified on 28 October:** the public application loaded successfully; RELIANCE annual and TCS quarterly analyses rendered their actual statement-backed Pros/Cons. Both live downloads completed. The TCS Markdown contained quarterly evidence through 30 September 2026 without a demo label; CSV validation confirmed six reporting dates, quarterly frequency, yfinance provenance and net income 138,840,000,000 for the latest quarter.
+
+Cloud profile and metrics requests were unavailable during these checks. Company description, reporting currency and provider valuation therefore remained explicitly unknown/unavailable; statement and price data remained usable, and insufficient inputs withheld affected scores. Local provider availability is not a guarantee of cloud coverage. No claim of universal data completeness is made.

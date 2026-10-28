@@ -20,9 +20,9 @@
 
 Files: services/normalization.py, new services/fundamentals.py, services/analysis.py, services/scoring.py; tests/test_fundamentals.py.
 
-- [ ] Add regressions for quarterly 3Y growth, complete/incomplete/gapped TTM, nonpositive equity, zero debt and alias normalization; run them and confirm failures against the baseline.
-- [ ] Implement `enrich_periods(periods, frequency='annual')`, comparable date matching and complete trailing-four-quarter helpers. Derive annual/TTM P/E and FCF yield in `fundamental_inputs(periods, metrics, frequency, market_cap=None)`; preserve provider aliases and use statement ratios consistently.
-- [ ] Pass frequency from both demo and live assembly, use those inputs in scoring and overview, and rerun regression tests.
+- [x] Add regressions for quarterly 3Y growth, complete/incomplete/gapped TTM, nonpositive equity, zero debt and alias normalization; run them and confirm failures against the baseline.
+- [x] Implement `enrich_periods(periods, frequency='annual')`, comparable date matching and complete trailing-four-quarter helpers. Derive annual/TTM P/E and FCF yield in `fundamental_inputs(periods, metrics, frequency, market_cap=None)`; preserve provider aliases and use statement ratios consistently.
+- [x] Pass frequency from both demo and live assembly, use those inputs in scoring and overview, and rerun regression tests.
 
 Key regression:
 ```python
@@ -34,10 +34,10 @@ assert fundamental_inputs(four_quarters, {'market_cap': 1000}, 'quarterly')['pe_
 
 Files: new services/research.py, new ui/research.py, ui/overview.py; tests/test_research.py, tests/test_streamlit_app.py.
 
-- [ ] Test positive/negative observations, financial exclusions, insufficient data and export provenance before implementing.
-- [ ] Implement typed `ResearchObservation` and `ResearchBrief` plus `build_research_brief(bundle)` and `research_markdown(bundle, brief)`. Include actual values, comparable dates, source, valuation context and research limitations.
-- [ ] Render Pros, Cons, recent comparable changes and missing evidence before price history. Expose Markdown download from the same brief.
-- [ ] Verify both demo symbols and frequencies with AppTest and pure research tests.
+- [x] Test positive/negative observations, financial exclusions, insufficient data and export provenance before implementing.
+- [x] Implement typed `ResearchObservation` and `ResearchBrief` plus `build_research_brief(bundle)` and `research_markdown(bundle, brief)`. Include actual values, comparable dates, source, valuation context and research limitations.
+- [x] Render Pros, Cons, recent comparable changes and missing evidence before price history. Expose Markdown download from the same brief.
+- [x] Verify both demo symbols and frequencies with AppTest and pure research tests.
 
 Key regression:
 ```python
@@ -50,10 +50,10 @@ assert bundle.symbol in research_markdown(bundle, brief)
 
 Files: new services/freshness.py, providers/openbb_gateway.py, services/analysis.py, ui/overview.py, ui/financials.py, services/comparison.py, ui/comparison.py; corresponding service tests.
 
-- [ ] Add source-age, unknown-date, mixed-frequency and shared-price-start regressions; verify failures.
-- [ ] Compute disclosed freshness from source age; preserve retrieval time separately and missing source dates. Render partial coverage honestly.
-- [ ] Add dated financial CSV download. Reject mixed-frequency comparisons with actionable UI text, normalize price series on the first shared positive close, and handle absent overlap.
-- [ ] Rerun service/UI regressions and check exported values and metadata.
+- [x] Add source-age, unknown-date, mixed-frequency and shared-price-start regressions; verify failures.
+- [x] Compute disclosed freshness from source age; preserve retrieval time separately and missing source dates. Render partial coverage honestly.
+- [x] Add dated financial CSV download. Reject mixed-frequency comparisons with actionable UI text, normalize price series on the first shared positive close, and handle absent overlap.
+- [x] Rerun service/UI regressions and check exported values and metadata.
 
 Key regression:
 ```python
@@ -65,10 +65,10 @@ assert frame.iloc[0].eq(100).all()
 
 Files: README.md, scripts/run_checks.ps1, tests/e2e/test_app.py, dated verification document.
 
-- [ ] Extend browser coverage to research sections, annual/quarterly changes and downloads. Retain mobile, reduced-motion and WebGL coverage.
-- [ ] Make release checks fail on nonzero native-command exits, then run tests, lint, strict typing, component reproducibility, vulnerability audits and browser checks.
-- [ ] Run bounded live provider diagnostics and record source dates, actual availability, limitations and local verification results.
-- [ ] Self-review the full diff, update documentation and commit the tested work.
+- [x] Extend browser coverage to research sections, annual/quarterly changes and downloads. Retain mobile, reduced-motion and WebGL coverage.
+- [x] Make release checks fail on nonzero native-command exits, then run tests, lint, strict typing, component reproducibility, vulnerability audits and browser checks.
+- [x] Run bounded live provider diagnostics and record source dates, actual availability, limitations and local verification results.
+- [x] Self-review the full diff, update documentation and commit the tested work.
 
 Commands use `rtk proxy .\.venv\Scripts\python.exe -m pytest -q`, `-m ruff check app.py nivesh scripts tests`, `-m mypy nivesh scripts`, `-m pytest tests/e2e -m e2e -q`, and `scripts/live_smoke.py --symbol RELIANCE.NS --timeout 45` from the repository root. Each must report its actual exit code; demo browser success does not establish live provider coverage.
 
