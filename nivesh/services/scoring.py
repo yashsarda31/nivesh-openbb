@@ -12,7 +12,7 @@ from nivesh.domain.models import (
     MetricScore,
     Scorecard,
 )
-from nivesh.services.ratios import price_to_earnings
+from nivesh.services.fundamentals import fundamental_inputs
 
 Direction = Literal["higher", "lower"]
 
@@ -166,23 +166,13 @@ def score_company(
     provider_metrics: Mapping[str, float | None],
     *,
     sector: str | None,
+    frequency: str = "annual",
 ) -> Scorecard:
     """Build a scorecard without publishing scores below coverage thresholds."""
 
     latest = max(periods, key=lambda period: period.period_ending) if periods else None
     source_period = _source_period(latest)
-    inputs = dict(provider_metrics)
-    if latest is not None:
-        inputs = {**latest.metrics, **inputs}
-        if inputs.get("fcf_yield") is None:
-            inputs["fcf_yield"] = _derive_fcf_yield(latest, provider_metrics)
-        # Some providers (openbb-yfinance KeyMetrics) drop the whole row when
-        # one field is missing, so P/E can be absent even with usable inputs.
-        if _first_value(inputs, ("pe_ratio", "price_earnings", "price_to_earnings")) is None:
-            inputs["pe_ratio"] = price_to_earnings(
-                _first_value(provider_metrics, ("market_cap", "market_capitalization")),
-                latest.net_income,
-            )
+    inputs = fundamental_inputs(periods, provider_metrics, frequency)
 
     financial_company = _is_financial_sector(sector)
     components: dict[str, ComponentScore] = {}
@@ -317,9 +307,7 @@ def _financial_balance_exclusion(rules: Sequence[MetricRule]) -> ComponentScore:
     )
 
 
-def _first_value(
-    inputs: Mapping[str, float | None], keys: Sequence[str]
-) -> float | None:
+def _first_value(inputs: Mapping[str, float | None], keys: Sequence[str]) -> float | None:
     for key in keys:
         value = inputs.get(key)
         if value is not None:
@@ -346,7 +334,4 @@ def _source_period(period: FinancialPeriod | None) -> str | None:
 
 def _is_financial_sector(sector: str | None) -> bool:
     normalized = (sector or "").casefold()
-    return any(
-        term in normalized
-        for term in ("financial", "bank", "insurance", "capital markets")
-    )
+    return any(term in normalized for term in ("financial", "bank", "insurance", "capital markets"))

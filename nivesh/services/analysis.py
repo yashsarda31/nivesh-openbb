@@ -51,13 +51,14 @@ def load_demo_analysis(symbol: str, period: str) -> AnalysisBundle:
         )
     fixture = DemoFixture.model_validate(json.loads(path.read_text(encoding="utf-8")))
     periods = fixture.annual_statements if period == "annual" else fixture.quarterly_statements
-    enriched = enrich_periods(periods)
+    enriched = enrich_periods(periods, frequency=period)
     retrieved_at = datetime.now(UTC)
     warning = "Demo fixture; not a live provider result."
     scorecard = score_company(
         enriched,
         fixture.metrics,
         sector=fixture.profile.sector,
+        frequency=period,
     )
     return AnalysisBundle(
         symbol=fixture.symbol,
@@ -115,7 +116,8 @@ def assemble_provider_bundle(bundle: ProviderBundle, period: str) -> AnalysisBun
             statements.income.data,
             statements.balance.data,
             statements.cash.data,
-        )
+        ),
+        frequency=period,
     )
     statement_results = (statements.income, statements.balance, statements.cash)
     statement_warnings = tuple(
@@ -144,7 +146,9 @@ def assemble_provider_bundle(bundle: ProviderBundle, period: str) -> AnalysisBun
         prices=bundle.prices,
         statements=normalized_statements,
         metrics=bundle.metrics,
-        scorecard=score_company(periods, bundle.metrics.data, sector=profile.sector),
+        scorecard=score_company(
+            periods, bundle.metrics.data, sector=profile.sector, frequency=period
+        ),
     )
 
 
