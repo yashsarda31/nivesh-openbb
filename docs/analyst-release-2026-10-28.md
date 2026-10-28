@@ -28,3 +28,5 @@ Python 3.11, Streamlit 1.66.1:
 ## Publication
 
 Target: GitHub `yashsarda31/nivesh-openbb`, branch `main`, Streamlit `https://niveshopen.streamlit.app/`. Publication and deployed behavior are recorded separately after verification.
+
+GitHub application changes were published as `777f93e`. Streamlit installed the updated main branch and Streamlit 1.66.1/Pillow 13.0.0. Its fresh resolver also selected websockets 17.3 with uvicorn 0.40.0; startup diagnostics identified an incompatible reverse-proxy handshake. Pinning the already locally tested websockets 16.1.1 fixes that deployment difference. PyArrow 24.0.0 is also pinned to the tested version; the cloud bootstrap had automatically replaced 26.0.0 due to its reported crash issue.
