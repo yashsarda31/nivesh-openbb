@@ -140,3 +140,57 @@ def test_currency_and_zero_are_preserved():
     assert _format_money(0, "USD") == "USD 0"
     assert "₹" not in _format_money(1000, "USD")
     assert _format_money(None, "USD") == "—"
+
+
+def test_derived_pe_uses_actual_metrics_cap_source():
+    b = bundle([FinancialPeriod(period_ending=date(2026, 3, 31), net_income=20)])
+    b = b.model_copy(
+        update={
+            "metrics": b.metrics.model_copy(
+                update={
+                    "provider": "cap-provider",
+                    "as_of": date(2026, 10, 27),
+                    "data": {"market_cap": 1000},
+                }
+            ),
+            "profile": b.profile.model_copy(
+                update={
+                    "provider": "profile-provider",
+                    "as_of": date(2026, 1, 1),
+                    "data": b.profile.data.model_copy(update={"market_cap": 400}),
+                }
+            ),
+        }
+    )
+    item = build_research_brief(b).valuation_context[0]
+    assert "50.00x" in item.evidence
+    assert "cap-provider" in item.source and "profile-provider" not in item.source
+    assert "2026-10-27" in item.evidence and "2026-03-31" in item.evidence
+
+
+def test_provider_valuation_uses_metric_date_and_rejects_nonpositive_multiples():
+    b = bundle([FinancialPeriod(period_ending=date(2026, 3, 31), net_income=20)])
+    b = b.model_copy(
+        update={
+            "metrics": b.metrics.model_copy(
+                update={
+                    "provider": "valuation-provider",
+                    "as_of": date(2026, 10, 27),
+                    "data": {"trailing_pe": 20, "pb_ratio": 3, "enterprise_to_ebitda": -4},
+                }
+            )
+        }
+    )
+    items = build_research_brief(b).valuation_context
+    assert len(items) == 3
+    assert all(x.source == "valuation-provider" and "2026-10-27" in x.period for x in items)
+    assert any("3.00x" in x.evidence for x in items)
+    assert any("Unavailable" in x.evidence and "-4.00x" not in x.evidence for x in items)
+
+
+def test_inr_evidence_is_readable_and_three_year_gap_is_explicit():
+    b = bundle([FinancialPeriod(period_ending=date(2026, 3, 31), net_income=807750000000)])
+    b = b.model_copy(update={"statements": b.statements.model_copy(update={"currency": "INR"})})
+    brief = build_research_brief(b)
+    assert "INR 80,775.00 Cr" in brief.pros[0].evidence
+    assert any("three-year" in x.lower() for x in brief.limitations)

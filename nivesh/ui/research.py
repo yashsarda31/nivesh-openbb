@@ -34,7 +34,7 @@ def render_research(bundle: AnalysisBundle) -> None:
         for item in brief.changes + brief.valuation_context:
             st.markdown(f"**{item.title}** — {item.evidence}")
             st.caption(f"{item.period} · {item.source}")
-    with st.expander("Data limitations and research checklist", expanded=True):
+    with st.expander("Data limitations and research checklist", expanded=False):
         for limitation in brief.limitations:
             st.write("• " + limitation)
         st.write(CHECKS)

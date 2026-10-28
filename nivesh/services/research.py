@@ -7,7 +7,7 @@ from typing import Any
 from nivesh.domain.models import AnalysisBundle, DatasetResult
 from nivesh.services.freshness import FRESHNESS_POLICY
 from nivesh.services.fundamentals import ALIASES, fundamental_inputs
-from nivesh.services.normalization import comparable_period, enrich_periods
+from nivesh.services.normalization import _number, comparable_period, enrich_periods
 
 METHODOLOGY = (
     "Generic rules, not peer comparisons: positive profit, FCF and growth support observations; "
@@ -49,6 +49,56 @@ def _datasets(bundle: AnalysisBundle) -> list[tuple[str, DatasetResult[Any]]]:
     ]
 
 
+def _valuation_context(
+    bundle: AnalysisBundle, inputs: dict[str, float | None], frequency: str
+) -> list[ResearchObservation]:
+    """Separate provider valuation snapshots from dated statement-derived earnings."""
+    observations = []
+    metrics = bundle.metrics
+    for key, label in [
+        ("pe_ratio", "P/E"),
+        ("price_to_book", "P/B"),
+        ("ev_to_ebitda", "EV/EBITDA"),
+    ]:
+        provider_value = next(
+            (
+                _number(metrics.data.get(alias))
+                for alias in ALIASES[key]
+                if _number(metrics.data.get(alias)) is not None
+            ),
+            None,
+        )
+        value = provider_value if provider_value is not None else inputs.get(key)
+        if value is None:
+            continue
+        source = metrics.provider
+        period = f"Provider metric source date {metrics.as_of or 'unknown'}"
+        basis = "provider metric"
+        if key == "pe_ratio" and provider_value is None:
+            cap_from_metrics = any(
+                _number(metrics.data.get(alias)) is not None for alias in ALIASES["market_cap"]
+            )
+            cap_source = metrics if cap_from_metrics else bundle.profile
+            latest = max(bundle.statements.data, key=lambda row: row.period_ending)
+            income_basis = "TTM" if frequency in {"quarter", "quarterly"} else "annual"
+            source = f"income: {bundle.statements.provider}; market cap: {cap_source.provider}"
+            period = f"{income_basis} income ending {latest.period_ending}"
+            basis = (
+                f"{income_basis} statement income ending {latest.period_ending}; "
+                f"market-cap source date {cap_source.as_of or 'unknown'}"
+            )
+        multiple = f"{value:.2f}x" if value > 0 else "Unavailable (nonpositive multiple)"
+        observations.append(
+            ResearchObservation(
+                f"{label} context",
+                f"{multiple}; {basis}. No peer-relative valuation conclusion.",
+                source,
+                period,
+            )
+        )
+    return observations
+
+
 def build_research_brief(bundle: AnalysisBundle) -> ResearchBrief:
     brief = ResearchBrief()
     ds = bundle.statements
@@ -58,6 +108,7 @@ def build_research_brief(bundle: AnalysisBundle) -> ResearchBrief:
     inputs = fundamental_inputs(
         rows, bundle.metrics.data, frequency, bundle.profile.data.market_cap
     )
+    brief.valuation_context = _valuation_context(bundle, inputs, frequency)
     currency = ds.currency or bundle.profile.data.currency or "currency unknown"
     financial = any(
         word
@@ -98,6 +149,7 @@ def build_research_brief(bundle: AnalysisBundle) -> ResearchBrief:
         brief.limitations.append(
             "No statements available; no statement-backed pros or cons can be established."
         )
+        brief.limitations.append("Insufficient history for statement-backed three-year growth.")
         return brief
     latest = rows[-1]
     period = f"{frequency} ending {latest.period_ending.isoformat()}"
@@ -109,6 +161,8 @@ def build_research_brief(bundle: AnalysisBundle) -> ResearchBrief:
         )
 
     def money(value: float) -> str:
+        if currency == "INR" and abs(value) >= 10_000_000:
+            return f"INR {value / 10_000_000:,.2f} Cr"
         return f"{currency} {value:,.2f}"
 
     if latest.net_income is not None:
@@ -240,36 +294,10 @@ def build_research_brief(bundle: AnalysisBundle) -> ResearchBrief:
             f"ending {latest.period_ending}.",
             growth3 > 0,
         )
-    pe = inputs.get("pe_ratio")
-    if pe is not None:
-        provider_pe = next(
-            (
-                bundle.metrics.data[key]
-                for key in ALIASES["pe_ratio"]
-                if bundle.metrics.data.get(key) is not None
-            ),
-            None,
-        )
-        source = (
-            bundle.metrics.provider
-            if provider_pe is not None
-            else f"{ds.provider}; market cap: {bundle.profile.provider}"
-        )
-        basis = (
-            f"provider metric, source date {bundle.metrics.as_of or 'unknown'}"
-            if provider_pe is not None
-            else (
-                f"{'TTM' if quarterly else 'annual'} statement income; "
-                f"market-cap source date {bundle.profile.as_of or 'unknown'}"
-            )
-        )
-        brief.valuation_context.append(
-            ResearchObservation(
-                "P/E context",
-                f"{pe:.2f}x; {basis}. No peer-relative valuation conclusion.",
-                source,
-                period,
-            )
+    else:
+        brief.limitations.append(
+            "Insufficient comparable annual history for statement-backed three-year growth; "
+            "quarterly observations are not substituted for annual CAGR."
         )
     missing = [
         name

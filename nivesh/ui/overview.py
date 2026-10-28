@@ -12,7 +12,7 @@ from nivesh.domain.models import (
     AnalysisBundle,
     DatasetResult,
 )
-from nivesh.services.fundamentals import fundamental_inputs
+from nivesh.services.fundamentals import ALIASES, fundamental_inputs
 from nivesh.ui.charts import price_figure
 from nivesh.ui.research import render_research
 
@@ -42,7 +42,12 @@ def render_overview(bundle: AnalysisBundle) -> None:
     score = bundle.scorecard.composite if bundle.scorecard else None
 
     pe_value = ratios.get("pe_ratio")
-    pe_derived = provider_metrics.get("pe_ratio") is None and pe_value is not None
+    pe_derived = (
+        not any(provider_metrics.get(key) is not None for key in ALIASES["pe_ratio"])
+        and pe_value is not None
+    )
+    if pe_value is not None and pe_value <= 0:
+        pe_value = None
     with st.container(horizontal=True):
         st.metric("Nivesh score", _format_score(score), border=True)
         st.metric(
