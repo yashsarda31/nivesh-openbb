@@ -167,12 +167,13 @@ def score_company(
     *,
     sector: str | None,
     frequency: str = "annual",
+    market_cap: float | None = None,
 ) -> Scorecard:
     """Build a scorecard without publishing scores below coverage thresholds."""
 
     latest = max(periods, key=lambda period: period.period_ending) if periods else None
     source_period = _source_period(latest)
-    inputs = fundamental_inputs(periods, provider_metrics, frequency)
+    inputs = fundamental_inputs(periods, provider_metrics, frequency, market_cap=market_cap)
 
     financial_company = _is_financial_sector(sector)
     components: dict[str, ComponentScore] = {}

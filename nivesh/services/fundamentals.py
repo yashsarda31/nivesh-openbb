@@ -31,6 +31,8 @@ def fundamental_inputs(
         )
     if inputs.get("debt_equity") is None:
         inputs["debt_equity"] = safe_divide(_number(metrics.get("debt_to_equity_percent")), 100)
+    if inputs.get("market_cap") is None:
+        inputs["market_cap"] = _number(market_cap)
     rows = enrich_periods(periods, frequency)
     if rows:
         latest = rows[-1]
@@ -59,7 +61,7 @@ def fundamental_inputs(
             inputs["debt_equity"] = None
         if latest.total_current_liabilities is not None and latest.total_current_liabilities <= 0:
             inputs["current_ratio"] = None
-        cap = _number(market_cap) if market_cap is not None else inputs.get("market_cap")
+        cap = inputs.get("market_cap")
         window = trailing_quarters(rows) if frequency in {"quarter", "quarterly"} else [latest]
         if inputs.get("pe_ratio") is None:
             inputs["pe_ratio"] = price_to_earnings(cap, sum_field(window, "net_income"))

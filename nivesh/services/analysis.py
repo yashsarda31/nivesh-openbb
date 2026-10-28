@@ -60,6 +60,7 @@ def load_demo_analysis(symbol: str, period: str) -> AnalysisBundle:
         fixture.metrics,
         sector=fixture.profile.sector,
         frequency=period,
+        market_cap=fixture.profile.market_cap,
     )
     result = AnalysisBundle(
         symbol=fixture.symbol,
@@ -149,7 +150,11 @@ def assemble_provider_bundle(bundle: ProviderBundle, period: str) -> AnalysisBun
         statements=normalized_statements,
         metrics=bundle.metrics,
         scorecard=score_company(
-            periods, bundle.metrics.data, sector=profile.sector, frequency=period
+            periods,
+            bundle.metrics.data,
+            sector=profile.sector,
+            frequency=period,
+            market_cap=profile.market_cap,
         ),
     )
     return assess_bundle_freshness(result)
