@@ -194,3 +194,16 @@ def test_inr_evidence_is_readable_and_three_year_gap_is_explicit():
     brief = build_research_brief(b)
     assert "INR 80,775.00 Cr" in brief.pros[0].evidence
     assert any("three-year" in x.lower() for x in brief.limitations)
+
+
+def test_zero_three_year_growth_is_neutral_and_available():
+    b = bundle(
+        [
+            FinancialPeriod(period_ending=date(2023, 3, 31), revenue=100),
+            FinancialPeriod(period_ending=date(2026, 3, 31), revenue=100),
+        ]
+    )
+    brief = build_research_brief(b)
+    assert not any(item.title == "Three-year revenue contraction" for item in brief.cons)
+    assert not any(item.title == "Three-year revenue growth" for item in brief.pros)
+    assert not any("Insufficient comparable annual history" in item for item in brief.limitations)

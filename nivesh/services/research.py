@@ -287,14 +287,14 @@ def build_research_brief(bundle: AnalysisBundle) -> ResearchBrief:
                 False,
             )
     growth3 = latest.metrics.get("revenue_cagr_3y")
-    if growth3 is not None and not quarterly:
+    if growth3 is not None and not quarterly and growth3 != 0:
         observe(
             "Three-year revenue growth" if growth3 > 0 else "Three-year revenue contraction",
             f"Revenue CAGR {growth3:.1%} across three reporting years "
             f"ending {latest.period_ending}.",
             growth3 > 0,
         )
-    else:
+    elif growth3 is None or quarterly:
         brief.limitations.append(
             "Insufficient comparable annual history for statement-backed three-year growth; "
             "quarterly observations are not substituted for annual CAGR."
