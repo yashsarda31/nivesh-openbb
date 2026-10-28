@@ -17,7 +17,7 @@ from nivesh.domain.models import (
     ProviderBundle,
 )
 from nivesh.providers.openbb_gateway import OpenBBGateway
-from nivesh.services.freshness import assess_bundle_freshness
+from nivesh.services.freshness import assess_bundle_freshness, assess_freshness
 from nivesh.services.normalization import enrich_periods, normalize_statements
 from nivesh.services.scoring import score_company
 
@@ -122,9 +122,19 @@ def assemble_provider_bundle(bundle: ProviderBundle, period: str) -> AnalysisBun
         ),
         frequency=period,
     )
-    statement_results = (statements.income, statements.balance, statements.cash)
+    reference = datetime.now(UTC).date()
+    statement_results = tuple(
+        assess_freshness(
+            endpoint,
+            max_age_days=150 if period in {"quarter", "quarterly"} else 550,
+            today=reference,
+        )
+        for endpoint in (statements.income, statements.balance, statements.cash)
+    )
     statement_warnings = tuple(
-        warning for result in statement_results for warning in result.warnings
+        f"{name}: {warning}"
+        for name, endpoint in zip(("income", "balance", "cash"), statement_results, strict=True)
+        for warning in endpoint.warnings
     )
     providers = sorted({result.provider for result in statement_results})
     statement_provider = ", ".join(providers) if providers else "unknown"
@@ -142,6 +152,7 @@ def assemble_provider_bundle(bundle: ProviderBundle, period: str) -> AnalysisBun
         currency=currency,
         warnings=statement_warnings,
         coverage=statement_coverage,
+        stale=any(endpoint.stale for endpoint in statement_results),
     )
     result = AnalysisBundle(
         symbol=bundle.symbol,
