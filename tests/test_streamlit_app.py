@@ -42,6 +42,10 @@ def test_valid_demo_company_renders_analysis_and_methodology(
     assert any("Reliance Industries Limited" in item.value for item in app.subheader)
     assert any(metric.label == "Nivesh score" for metric in app.metric)
     assert any("Research support" in item.value for item in app.caption)
+    assert any("Research brief" in item.value for item in app.subheader)
+    assert any(item.value == "**Pros**" for item in app.markdown)
+    assert any(item.value == "**Cons**" for item in app.markdown)
+    assert any("Consolidated/standalone" in item.value for item in app.markdown)
 
 
 def test_refresh_preserves_active_demo_analysis(monkeypatch: pytest.MonkeyPatch) -> None:

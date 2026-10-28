@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pandas as pd
@@ -10,12 +10,11 @@ import streamlit as st
 
 from nivesh.domain.models import (
     AnalysisBundle,
-    CompanyProfile,
     DatasetResult,
-    FinancialPeriod,
 )
-from nivesh.services.ratios import price_to_earnings
+from nivesh.services.fundamentals import fundamental_inputs
 from nivesh.ui.charts import price_figure
+from nivesh.ui.research import render_research
 
 
 def render_overview(bundle: AnalysisBundle) -> None:
@@ -30,42 +29,50 @@ def render_overview(bundle: AnalysisBundle) -> None:
     st.caption(identity)
     st.caption("Research support, not a recommendation. Review coverage and source dates.")
 
-    latest = bundle.statements.data[-1] if bundle.statements.data else None
-    ratios = latest.metrics if latest else {}
+    latest = (
+        max(bundle.statements.data, key=lambda row: row.period_ending)
+        if bundle.statements.data
+        else None
+    )
+    frequency = bundle.statements.period or "annual"
+    ratios = fundamental_inputs(
+        bundle.statements.data, bundle.metrics.data, frequency, profile.market_cap
+    )
     provider_metrics = bundle.metrics.data
     score = bundle.scorecard.composite if bundle.scorecard else None
 
-    def ratio(statement_key: str, *provider_keys: str) -> float | None:
-        """Prefer statement-derived ratios, falling back to provider metrics."""
-
-        value = ratios.get(statement_key)
-        if value is not None:
-            return value
-        for key in provider_keys:
-            if (provider_value := provider_metrics.get(key)) is not None:
-                return provider_value
-        return None
-
-    pe_value, pe_derived = _pe_with_fallback(provider_metrics, profile, latest)
+    pe_value = ratios.get("pe_ratio")
+    pe_derived = provider_metrics.get("pe_ratio") is None and pe_value is not None
     with st.container(horizontal=True):
         st.metric("Nivesh score", _format_score(score), border=True)
-        st.metric("Revenue", _format_money(latest.revenue if latest else None), border=True)
-        st.metric("ROE", _format_percent(ratio("roe", "return_on_equity")), border=True)
+        st.metric(
+            "Revenue",
+            _format_money(latest.revenue if latest else None, profile.currency),
+            border=True,
+        )
+        st.metric("ROE", _format_percent(ratios.get("roe")), border=True)
         st.metric(
             "Operating margin",
-            _format_percent(ratio("operating_margin", "operating_margin")),
+            _format_percent(ratios.get("operating_margin")),
             border=True,
         )
         st.metric("P/E", _format_pe(pe_value, derived=pe_derived), border=True)
         st.metric(
             "Debt / equity",
-            _format_multiple(
-                ratio("debt_equity", "debt_to_equity_ratio")
-                or _percent_ratio(provider_metrics.get("debt_to_equity"))
-            ),
+            _format_multiple(ratios.get("debt_equity")),
             border=True,
         )
 
+    roe_basis = (
+        "TTM with average year-ago equity"
+        if frequency in {"quarter", "quarterly"}
+        else "annual with average equity where available"
+    )
+    st.caption(
+        f"{frequency} · latest period {latest.period_ending if latest else 'unknown'} · "
+        f"{bundle.statements.provider} · ROE basis: {roe_basis}"
+    )
+    render_research(bundle)
     left, right = st.columns([2, 1], vertical_alignment="top")
     with left, st.container(border=True):
         st.markdown("**Price history**")
@@ -80,9 +87,10 @@ def render_overview(bundle: AnalysisBundle) -> None:
         st.markdown("**Company context**")
         st.write(profile.description or "Company description unavailable from provider.")
         st.caption(
-            "Industry: " + (profile.industry or "Unavailable")
+            "Industry: "
+            + (profile.industry or "Unavailable")
             + "\n\nMarket cap: "
-            + _format_money(profile.market_cap)
+            + _format_money(profile.market_cap, profile.currency)
         )
         if profile.website:
             st.link_button(
@@ -111,13 +119,21 @@ def render_data_health(bundle: AnalysisBundle) -> None:
             status = "Stale" if result.stale else "Available"
             if not result.coverage:
                 status = "Unavailable"
+            elif not result.stale and result.coverage < 1:
+                status = "Partial"
+            elif not result.stale and result.as_of is None:
+                status = "Source date unknown"
             rows.append(
                 {
                     "Dataset": label,
                     "Status": status,
                     "Provider": result.provider,
                     "Source date": _format_date(result.as_of),
-                    "Retrieved": result.retrieved_at.strftime("%d %b %Y, %H:%M UTC"),
+                    "Retrieved": result.retrieved_at.replace(
+                        tzinfo=result.retrieved_at.tzinfo or UTC
+                    )
+                    .astimezone(UTC)
+                    .strftime("%d %b %Y, %H:%M UTC"),
                     "Coverage": result.coverage,
                     "Notes": warnings or "No provider warnings",
                 }
@@ -158,39 +174,14 @@ def _format_multiple(value: float | None) -> str:
     return f"{value:.2f}×" if value is not None else "—"
 
 
-def _pe_with_fallback(
-    provider_metrics: dict[str, float | None],
-    profile: CompanyProfile,
-    latest: FinancialPeriod | None,
-) -> tuple[float | None, bool]:
-    """Return the P/E multiple plus whether it was derived from statements.
-
-    openbb-yfinance drops its whole KeyMetrics row when any field such as
-    ``52WeekChange`` is missing, so derive P/E from market cap over the
-    latest reported net income when the provider value is unavailable.
-    """
-
-    if (provider_pe := provider_metrics.get("pe_ratio")) is not None:
-        return provider_pe, False
-    if latest is None:
-        return None, False
-    market_cap = provider_metrics.get("market_cap") or profile.market_cap
-    derived = price_to_earnings(market_cap, latest.net_income)
-    return derived, derived is not None
-
-
 def _format_pe(value: float | None, *, derived: bool) -> str:
     text = _format_multiple(value)
     return f"≈ {text}" if derived and value is not None else text
 
 
-def _percent_ratio(value: float | None) -> float | None:
-    """Convert a percentage-style provider ratio (10.2) to a ratio (0.102)."""
-
-    return value / 100.0 if value is not None else None
-
-
-def _format_money(value: float | None) -> str:
+def _format_money(value: float | None, currency: str | None = "INR") -> str:
     if value is None:
         return "—"
-    return f"₹ {value / 10_000_000:,.0f} Cr"
+    if currency == "INR":
+        return f"₹ {value / 10_000_000:,.0f} Cr"
+    return f"{currency or 'Currency unknown'} {value:,.0f}"
