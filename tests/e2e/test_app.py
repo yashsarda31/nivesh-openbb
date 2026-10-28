@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import csv
+from pathlib import Path
+
 import pytest
 from playwright.sync_api import ConsoleMessage, Page, expect
 
@@ -105,4 +108,47 @@ def test_webgl_failure_keeps_exact_comparison_available(page: Page, app_url: str
     expect(page.get_by_text("3D view unavailable", exact=False)).to_be_visible()
     expect(page.get_by_text("Fundamental comparison", exact=True)).to_be_visible()
     expect(page.locator("[data-testid='stDataFrame']")).to_be_visible()
+    assert errors == []
+
+
+@pytest.mark.e2e
+@pytest.mark.parametrize("frequency", ["Annual", "Quarterly"])
+def test_research_and_financial_downloads_keep_reporting_basis(
+    page: Page,
+    app_url: str,
+    frequency: str,
+) -> None:
+    errors = _capture_browser_errors(page)
+    page.goto(app_url, wait_until="networkidle")
+    page.get_by_role("radio", name=frequency, exact=True).click()
+    _analyze(page, "TCS")
+    expect(page.get_by_text("Tata Consultancy Services Limited", exact=True)).to_be_visible()
+    expect(page.get_by_text("Pros", exact=True)).to_be_visible()
+    expect(page.get_by_text("Cons", exact=True)).to_be_visible()
+    with page.expect_download() as downloaded:
+        page.get_by_role("button", name="Download research brief (Markdown)", exact=True).click()
+    report = downloaded.value
+    assert f"TCS.NS-{frequency.lower()}-" in report.suggested_filename
+    path = report.path()
+    assert path is not None
+    text = path.read_text(encoding="utf-8")
+    assert "TCS.NS" in text and "DEMO" in text
+    assert frequency.lower() in text
+    assert "2026-03-31" in text
+    assert "Pros" in text and "Cons" in text
+    screenshot_dir = Path(__file__).parents[2] / "test-results" / "research"
+    screenshot_dir.mkdir(parents=True, exist_ok=True)
+    page.screenshot(path=str(screenshot_dir / f"{frequency.lower()}.png"), full_page=True)
+    page.get_by_role("radio", name="Financials", exact=True).click()
+    expect(page.get_by_text("Financial history", exact=True)).to_be_visible()
+    with page.expect_download() as downloaded_csv:
+        page.get_by_role("button", name="Download financials CSV").click()
+    csv_path = downloaded_csv.value.path()
+    assert csv_path is not None
+    with csv_path.open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert rows and rows[0]["Frequency"] == frequency.lower()
+    assert rows[0]["Provider"] == "demo"
+    assert rows[0]["Period ending"] == "2026-03-31"
+    assert rows[0]["Retrieved UTC"]
     assert errors == []

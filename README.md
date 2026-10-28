@@ -8,6 +8,8 @@ The application requires no login and stores no personal information. It is rese
 
 - Resolve bare NSE symbols such as `RELIANCE`, explicit `.NS` symbols, and six-digit BSE codes such as `500325.BO`.
 - Inspect company identity, price history, reported financials, margins, returns, leverage, liquidity, cash generation, and supported valuation metrics.
+- Read statement-backed Pros and Cons, comparable year-on-year changes and neutral valuation context for every analyzed stock. Each observation shows its numbers, reporting basis and provider; missing evidence stays separate from business weaknesses.
+- Download a dated Markdown research brief and financial-history CSV with source and retrieval metadata.
 - Switch between annual and quarterly statements.
 - Review quality, growth, balance-sheet, valuation, and composite scores with every raw input, effective weight, source period, exclusion, warning, and coverage value visible.
 - Compare two to four companies through indexed price charts, a sortable exact-value table, and interactive 3D financial towers.
@@ -42,6 +44,8 @@ Never treat the demo fixtures as current market data.
 
 Each dataset carries its provider, source date, retrieval time, reporting period, currency, coverage, stale flag, and warnings. Missing values remain missing and render as `—`; they are never silently changed to numeric zero.
 
+Source dates are never inferred from fetch time. Source-age review flags use 7 days for prices, 550 days for annual statements, 150 days for quarterly statements, 180 days for dated provider metrics and 365 days for dated profiles. Income, balance and cash-flow endpoints are checked separately, so a newer balance sheet cannot hide older income/cash data. These are review thresholds, not proof that a filing is the latest available. Consolidated versus standalone scope remains unverified when the provider does not supply it.
+
 Production cache defaults are:
 
 - Prices: 15 minutes.
@@ -73,6 +77,12 @@ Missing inputs are excluded and available weights rescale only within their comp
 
 The methodology drawer in the app is the operational source of truth for a displayed score.
 
+Three-year growth requires the same reporting date three years earlier. Quarterly ROE/ROA uses complete trailing-four-quarter income and average year-earlier/current balances; it is withheld without sufficient data. Derived P/E and FCF yield use annual or complete, consecutive TTM flows, with canonical metric market cap preferred and profile market cap used only when missing. Nonpositive equity and invalid liquidity denominators are excluded. Yahoo percentage-style debt/equity is normalized once. Quarterly UI selection maps to the provider's `quarter` parameter.
+
+The research brief uses disclosed generic rules, not peer-relative investment judgments. Financial companies omit industrial leverage, liquidity, operating-margin and cash-conversion conclusions. The app never fills an empty Pros or Cons column with unsupported claims. Verify filings, audit notes, ownership and sector context independently.
+
+Comparisons require the same reporting frequency. Indexed close charts start at 100 on the first shared valid date, retain missing observations and exclude dividend reinvestment; the default yfinance prices are split-adjusted. The exact tables and exports preserve reported values.
+
 ## Verification
 
 Run the complete local release gate:
@@ -82,6 +92,8 @@ powershell -ExecutionPolicy Bypass -File scripts/run_checks.ps1
 ```
 
 It runs unit and Streamlit UI tests, linting, strict type checks, Python and npm vulnerability audits, deterministic component builds, whitespace checks, and Chromium tests at desktop and 390×844 mobile sizes. Browser coverage includes reduced motion, WebGL fallback, page errors, and console errors.
+
+The release script stops immediately on a nonzero native-command exit. Chromium tests also download annual and quarterly research/CSV reports and check their reporting basis and provenance. The runtime pins Streamlit 1.66.1 and Pillow 13.0.0 so the image dependency is not held on the older vulnerable release.
 
 Run a bounded live-provider diagnostic separately:
 

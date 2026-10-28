@@ -295,7 +295,8 @@ class OpenBBGateway:
 
         # openbb-yfinance caps the three statement models at limit<=5 (pydantic
         # le=5). Sending limit=8 raises ValidationError before reaching yfinance.
-        common = {"symbol": symbol, "period": period, "limit": 5}
+        provider_period = "quarter" if period == "quarterly" else period
+        common = {"symbol": symbol, "period": provider_period, "limit": 5}
         fundamental = self.client.equity.fundamental
         return StatementDatasets(
             income=self._fetch_records("income", fundamental.income, **common),
@@ -310,7 +311,7 @@ class OpenBBGateway:
             "metrics",
             self.client.equity.fundamental.metrics,
             symbol=symbol,
-            period=period,
+            period="quarter" if period == "quarterly" else period,
             limit=8,
             ttm="exclude",
         )

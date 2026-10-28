@@ -18,6 +18,16 @@ def render_financials(bundle: AnalysisBundle) -> None:
         f"{bundle.statements.period or 'Reported'} periods · "
         f"{bundle.statements.provider} · exact values in reported currency"
     )
+    frame = _statement_frame(bundle)
+    st.download_button(
+        "Download financials CSV",
+        data=frame.to_csv(index=False).encode("utf-8-sig"),
+        file_name=f"{bundle.symbol}-{bundle.statements.period}-financials.csv",
+        mime="text/csv",
+        icon=":material/download:",
+        key=f"financials-download-{bundle.symbol}",
+        on_click="ignore",
+    )
 
     with st.container(border=True):
         st.markdown("**Income and cash generation**")
@@ -54,7 +64,7 @@ def render_financials(bundle: AnalysisBundle) -> None:
 
     with st.expander("Exact reported values", icon=":material/table_chart:"):
         st.dataframe(
-            _statement_frame(bundle),
+            frame,
             hide_index=True,
             key=f"statements-{bundle.symbol}",
             column_config={"Period": st.column_config.TextColumn("Period", pinned=True)},
@@ -73,9 +83,18 @@ def _statement_frame(bundle: AnalysisBundle) -> pd.DataFrame:
                 "Operating profit": period.operating_income,
                 "Net income": period.net_income,
                 "Free cash flow": period.free_cash_flow,
+                "Operating cash flow": period.operating_cash_flow,
+                "Capital expenditure": period.capital_expenditure,
+                "Diluted EPS": period.diluted_eps,
+                "Total assets": period.total_assets,
                 "Total equity": period.total_equity,
                 "Total debt": period.total_debt,
+                "Cash": period.cash,
                 "Currency": period.currency or bundle.statements.currency or "—",
+                "Frequency": bundle.statements.period,
+                "Provider": bundle.statements.provider,
+                "Source date": bundle.statements.as_of,
+                "Retrieved UTC": bundle.statements.retrieved_at.isoformat(),
             }
         )
     return pd.DataFrame(rows)

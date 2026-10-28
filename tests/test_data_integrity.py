@@ -16,6 +16,13 @@ def test_profile_does_not_invent_source_date_from_fetch_time() -> None:
     assert result.as_of is None
 
 
+def test_quarterly_ui_frequency_maps_to_provider_quarter() -> None:
+    client = FakeOBB()
+    OpenBBGateway(client).fetch_provider_bundle("TCS.NS", "quarterly")
+    statement_calls = [args for name, args in client.calls if name in {"income", "balance", "cash"}]
+    assert statement_calls and all(args["period"] == "quarter" for args in statement_calls)
+
+
 def test_latest_metrics_record_is_selected_regardless_of_provider_order() -> None:
     client = FakeOBB()
     client.payloads["metrics"] = [
@@ -31,7 +38,7 @@ def test_yfinance_percentage_debt_equity_is_normalized_once() -> None:
     client = FakeOBB()
     client.payloads["metrics"] = [{"debt_to_equity": 25.0, "enterprise_to_ebitda": 12.0}]
     metrics = OpenBBGateway(client, provider="yfinance").fetch_metrics("TCS.NS", "annual")
-    assert metrics.data["debt_equity"] == 0.25
+    assert metrics.data.get("debt_equity") == 0.25
 
 
 def test_comparison_uses_shared_valuation_aliases() -> None:
@@ -49,6 +56,35 @@ def test_old_statement_source_date_is_marked_stale() -> None:
     raw = OpenBBGateway(FakeOBB()).fetch_provider_bundle("RELIANCE.NS", "quarterly")
     bundle = assemble_provider_bundle(raw, "quarterly")
     assert bundle.statements.stale
+
+
+def test_new_balance_does_not_hide_stale_income_and_cash() -> None:
+    client = FakeOBB()
+    client.payloads["balance"] = [{"period_ending": "2026-10-01", "total_equity": 1000.0}]
+    raw = OpenBBGateway(client).fetch_provider_bundle("RELIANCE.NS", "quarterly")
+    bundle = assemble_provider_bundle(raw, "quarterly")
+    assert bundle.statements.stale
+    notes = " ".join(bundle.statements.warnings).casefold()
+    assert "income" in notes and "cash" in notes
+
+
+def test_comparison_uses_supported_provider_ratio_fallback() -> None:
+    one = load_demo_analysis("RELIANCE.NS", "annual")
+    latest = one.statements.data[-1].model_copy(
+        update={
+            "total_equity": None,
+            "metrics": {},
+        }
+    )
+    one = one.model_copy(
+        update={
+            "statements": one.statements.model_copy(update={"data": [latest]}),
+            "metrics": one.metrics.model_copy(update={"data": {"return_on_equity": 0.18}}),
+        }
+    )
+    payload = build_comparison([one, load_demo_analysis("TCS.NS", "annual")])
+    roe = next(row for row in payload.rows if row.symbol == one.symbol and row.metric == "roe")
+    assert roe.value == 0.18
 
 
 def test_comparison_rejects_mixed_reporting_frequencies() -> None:

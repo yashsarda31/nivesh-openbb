@@ -57,7 +57,7 @@ Make each analyzed stock easier to understand, challenge and document. Its overv
 - Verify both example stocks in annual and quarterly Streamlit workflows, report downloads and provider-limited states.
 - Run the complete relevant unit/UI suite, lint and strict type checks. Run browser checks at desktop and narrow mobile sizes, including page/console errors and existing component fallbacks.
 - Run a bounded real-provider smoke check separately from deterministic demo tests, preserving any provider limits in the final report.
-- No deployment claim without deployment and live verification. Implementation and local testing are within this task; public release needs an explicit deployment destination.
+- No deployment claim without deployment and live verification. The user authorized GitHub publication and Streamlit deployment; the existing destination is niveshopen.streamlit.app, tracking yashsarda31/nivesh-openbb/main/app.py.
 
 ## Current review evidence
 

@@ -160,7 +160,13 @@ def _company_rows(bundle: AnalysisBundle, latest: FinancialPeriod | None) -> lis
             )
         )
     for key, (label, format_kind) in _RATIO_METRICS.items():
-        value = _finite(latest.metrics.get(key)) if latest else None
+        value = _finite(inputs.get(key))
+        from_statement = latest is not None and latest.metrics.get(key) is not None
+        ratio_period = (
+            period_label
+            if from_statement
+            else (str(bundle.metrics.as_of) if bundle.metrics.as_of else "Source date unavailable")
+        )
         rows.append(
             _row(
                 bundle,
@@ -169,8 +175,8 @@ def _company_rows(bundle: AnalysisBundle, latest: FinancialPeriod | None) -> lis
                 label,
                 value,
                 format_kind,
-                period_label,
-                bundle.statements.provider,
+                ratio_period,
+                bundle.statements.provider if from_statement else bundle.metrics.provider,
                 bundle.statements.currency,
                 bundle.statements.warnings,
             )

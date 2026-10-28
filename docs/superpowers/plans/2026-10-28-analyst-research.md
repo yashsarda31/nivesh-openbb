@@ -72,4 +72,4 @@ Files: README.md, scripts/run_checks.ps1, tests/e2e/test_app.py, dated verificat
 
 Commands use `rtk proxy .\.venv\Scripts\python.exe -m pytest -q`, `-m ruff check app.py nivesh scripts tests`, `-m mypy nivesh scripts`, `-m pytest tests/e2e -m e2e -q`, and `scripts/live_smoke.py --symbol RELIANCE.NS --timeout 45` from the repository root. Each must report its actual exit code; demo browser success does not establish live provider coverage.
 
-Plan self-review: every approved spec section maps to one of Tasks 1–4. Service interfaces and names above are the implementation contract. No delegated agents are needed.
+Plan self-review: every approved spec section maps to one of Tasks 1–4. Service interfaces and names above are the implementation contract. Calculation and research tasks receive separate implementation and review passes.
