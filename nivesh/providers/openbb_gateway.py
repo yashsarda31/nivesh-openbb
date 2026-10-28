@@ -242,15 +242,13 @@ class OpenBBGateway:
             currency=first_text("currency"),
             market_cap=self._optional_float(record.get("market_cap")),
             website=first_text("website", "company_url"),
-            description=first_text(
-                "company_description", "description", "long_description"
-            ),
+            description=first_text("company_description", "description", "long_description"),
         )
         return DatasetResult(
             data=profile,
             provider=raw.provider,
             retrieved_at=raw.retrieved_at,
-            as_of=raw.as_of or raw.retrieved_at.date(),
+            as_of=raw.as_of,
             currency=profile.currency,
             warnings=raw.warnings,
             coverage=raw.coverage,
@@ -316,17 +314,26 @@ class OpenBBGateway:
             limit=8,
             ttm="exclude",
         )
-        record = raw.data[-1] if raw.data else {}
+        record = max(
+            raw.data,
+            key=lambda row: self._records_as_of([row]) or date.min,
+            default={},
+        )
         metrics = {
             key: self._optional_float(value)
             for key, value in record.items()
             if key not in _METRIC_METADATA and (value is None or isinstance(value, int | float))
         }
+        # Yahoo's debtToEquity snapshot is percentage-style; preserve its raw
+        # field but provide an unambiguous ratio for every downstream consumer.
+        yahoo_debt = metrics.get("debt_to_equity")
+        if self.provider == "yfinance" and yahoo_debt is not None:
+            metrics["debt_equity"] = yahoo_debt / 100.0
         return DatasetResult(
             data=metrics,
             provider=raw.provider,
             retrieved_at=raw.retrieved_at,
-            as_of=raw.as_of,
+            as_of=self._records_as_of([record]),
             period=period,
             warnings=raw.warnings,
             coverage=raw.coverage,

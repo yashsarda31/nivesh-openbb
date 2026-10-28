@@ -60,7 +60,7 @@ def test_profile_maps_provider_and_preserves_missing() -> None:
     assert result.provider == "yfinance"
     assert result.data.name == "Reliance Industries Limited"
     assert result.data.market_cap is None
-    assert result.as_of is not None
+    assert result.as_of is None  # No source date was supplied by this profile route.
 
 
 def test_profile_reads_openbb_yfinance_key_variants() -> None:

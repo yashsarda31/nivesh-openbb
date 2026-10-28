@@ -17,6 +17,7 @@ from nivesh.domain.models import (
     ProviderBundle,
 )
 from nivesh.providers.openbb_gateway import OpenBBGateway
+from nivesh.services.freshness import assess_bundle_freshness
 from nivesh.services.normalization import enrich_periods, normalize_statements
 from nivesh.services.scoring import score_company
 
@@ -60,7 +61,7 @@ def load_demo_analysis(symbol: str, period: str) -> AnalysisBundle:
         sector=fixture.profile.sector,
         frequency=period,
     )
-    return AnalysisBundle(
+    result = AnalysisBundle(
         symbol=fixture.symbol,
         profile=DatasetResult(
             data=fixture.profile,
@@ -98,6 +99,7 @@ def load_demo_analysis(symbol: str, period: str) -> AnalysisBundle:
         ),
         scorecard=scorecard,
     )
+    return assess_bundle_freshness(result)
 
 
 def fetch_live_analysis(symbol: str, period: str, provider: str) -> AnalysisBundle:
@@ -140,7 +142,7 @@ def assemble_provider_bundle(bundle: ProviderBundle, period: str) -> AnalysisBun
         warnings=statement_warnings,
         coverage=statement_coverage,
     )
-    return AnalysisBundle(
+    result = AnalysisBundle(
         symbol=bundle.symbol,
         profile=bundle.profile,
         prices=bundle.prices,
@@ -150,6 +152,7 @@ def assemble_provider_bundle(bundle: ProviderBundle, period: str) -> AnalysisBun
             periods, bundle.metrics.data, sector=profile.sector, frequency=period
         ),
     )
+    return assess_bundle_freshness(result)
 
 
 def demo_symbols() -> tuple[str, ...]:

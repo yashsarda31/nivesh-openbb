@@ -45,9 +45,7 @@ def render_comparison(
     _render_tray(selected_symbols)
 
     bundles = [
-        bundles_by_symbol[symbol]
-        for symbol in selected_symbols
-        if symbol in bundles_by_symbol
+        bundles_by_symbol[symbol] for symbol in selected_symbols if symbol in bundles_by_symbol
     ]
     if len(bundles) < 2:
         st.info(
@@ -56,22 +54,33 @@ def render_comparison(
         )
         return
 
-    payload = build_comparison(bundles)
+    try:
+        payload = build_comparison(bundles)
+    except ValueError as exc:
+        st.info(str(exc), icon=":material/compare_arrows:")
+        return
     for warning in payload.warnings:
         st.warning(warning, icon=":material/warning:")
 
     with st.container(border=True):
         st.markdown("**Normalized price performance**")
-        st.caption("Each series starts at 100 from its first valid positive close.")
-        st.plotly_chart(
-            comparison_figure(
-                normalized_price_frame(bundles),
-                y_title="Indexed close (first valid = 100)",
-            ),
-            width="stretch",
-            config={"displaylogo": False, "responsive": True},
-            key="comparison-price-chart",
+        st.caption(
+            "All series start at 100 on their first shared positive-close date. "
+            "Missing observations stay missing; dividends are not added."
         )
+        prices = normalized_price_frame(bundles)
+        if prices.empty:
+            st.info("No shared positive-close date is available for this selection.")
+        else:
+            st.plotly_chart(
+                comparison_figure(
+                    prices,
+                    y_title="Indexed close (common start = 100)",
+                ),
+                width="stretch",
+                config={"displaylogo": False, "responsive": True},
+                key="comparison-price-chart",
+            )
 
     st.markdown("**Fundamental comparison**")
     frame = pd.DataFrame(row.model_dump() for row in payload.rows)
@@ -103,9 +112,7 @@ def render_comparison(
     )
 
     st.markdown("**Interactive score towers**")
-    st.caption(
-        "Tower height follows the selected score. Exact values remain in the table above."
-    )
+    st.caption("Tower height follows the selected score. Exact values remain in the table above.")
     render_financial_towers(
         [tower.model_dump() for tower in payload.towers],
         key="financial-towers",

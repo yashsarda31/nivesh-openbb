@@ -9,6 +9,7 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 
 from nivesh.domain.models import AnalysisBundle, FinancialPeriod
+from nivesh.services.fundamentals import fundamental_inputs
 
 
 class ComparisonRow(BaseModel):
@@ -68,7 +69,7 @@ _PROVIDER_METRICS = {
 
 
 def normalized_price_frame(bundles: Sequence[AnalysisBundle]) -> pd.DataFrame:
-    """Outer-align closes by date and index each company from its first valid price."""
+    """Index all companies on the first shared positive close, without filling gaps."""
 
     series: list[pd.Series[float]] = []
     for bundle in bundles:
@@ -81,16 +82,17 @@ def normalized_price_frame(bundles: Sequence[AnalysisBundle]) -> pd.DataFrame:
         )
         if values.index.has_duplicates:
             values = values.groupby(level=0).last()
-        first_valid = values.dropna()
-        if not first_valid.empty:
-            values = values / first_valid.iloc[0] * 100.0
         series.append(values)
 
     if not series:
         return pd.DataFrame()
     frame = pd.concat(series, axis=1, join="outer").sort_index()
     frame.index.name = "Date"
-    return frame
+    common = frame.dropna(how="any")
+    if common.empty:
+        return frame.iloc[0:0]
+    frame = frame.loc[common.index[0] :]
+    return frame.divide(common.iloc[0], axis="columns") * 100.0
 
 
 def build_comparison(bundles: Sequence[AnalysisBundle]) -> ComparisonPayload:
@@ -101,6 +103,12 @@ def build_comparison(bundles: Sequence[AnalysisBundle]) -> ComparisonPayload:
     symbols = [bundle.symbol for bundle in bundles]
     if len(set(symbols)) != len(symbols):
         raise ValueError("Comparison companies must be unique.")
+    frequencies = {bundle.statements.period for bundle in bundles}
+    if len(frequencies) != 1 or not frequencies <= {"annual", "quarterly"}:
+        raise ValueError(
+            "Use the same reporting frequency for every company. "
+            "Re-analyze the selected companies as Annual or Quarterly."
+        )
 
     rows: list[ComparisonRow] = []
     towers: list[TowerCompany] = []
@@ -122,13 +130,18 @@ def build_comparison(bundles: Sequence[AnalysisBundle]) -> ComparisonPayload:
     return ComparisonPayload(rows=rows, towers=towers, warnings=tuple(dict.fromkeys(warnings)))
 
 
-def _company_rows(
-    bundle: AnalysisBundle, latest: FinancialPeriod | None
-) -> list[ComparisonRow]:
+def _company_rows(bundle: AnalysisBundle, latest: FinancialPeriod | None) -> list[ComparisonRow]:
     profile = bundle.profile.data
     company = profile.name or bundle.symbol
     period_label = _period_label(latest)
     rows: list[ComparisonRow] = []
+    provider_inputs = fundamental_inputs([], bundle.metrics.data)
+    inputs = fundamental_inputs(
+        bundle.statements.data,
+        bundle.metrics.data,
+        bundle.statements.period or "annual",
+        market_cap=profile.market_cap,
+    )
 
     for key, (label, format_kind) in _STATEMENT_METRICS.items():
         value = _finite(getattr(latest, key, None)) if latest else None
@@ -163,7 +176,16 @@ def _company_rows(
             )
         )
     for key, (label, format_kind) in _PROVIDER_METRICS.items():
-        value = _finite(bundle.metrics.data.get(key))
+        value = _finite(inputs.get(key))
+        derived = value is not None and provider_inputs.get(key) is None
+        source_period = (
+            f"{'TTM ending' if bundle.statements.period == 'quarterly' else 'Annual ending'} "
+            f"{latest.period_ending}"
+            if derived and latest
+            else str(bundle.metrics.as_of)
+            if bundle.metrics.as_of
+            else "Source date unavailable"
+        )
         rows.append(
             _row(
                 bundle,
@@ -172,8 +194,10 @@ def _company_rows(
                 label,
                 value,
                 format_kind,
-                period_label,
-                bundle.metrics.provider,
+                source_period,
+                f"Nivesh derived · {bundle.statements.provider}"
+                if derived
+                else bundle.metrics.provider,
                 bundle.metrics.currency,
                 bundle.metrics.warnings,
             )
