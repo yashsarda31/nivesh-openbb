@@ -22,16 +22,25 @@ def render_research(bundle: AnalysisBundle) -> None:
     for column, title, items in zip(
         st.columns(2), ("Pros", "Cons"), (brief.pros, brief.cons), strict=True
     ):
-        with column, st.container(border=True, height="stretch"):
-            st.markdown(f"**{title}**")
+        marker = (
+            ":green[:material/check_circle:]" if title == "Pros" else ":red[:material/error:]"
+        )
+        with column, st.container(key=f"card-{title.casefold()}", height="stretch"):
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown(f"**{title}**")
+                st.space("stretch")
+                st.badge(
+                    f"{len(items)} observation{'s' if len(items) != 1 else ''}",
+                    color="green" if title == "Pros" else "red",
+                )
             st.caption("Demonstrated strengths" if title == "Pros" else "Demonstrated weaknesses")
             for item in items[:5]:
-                st.markdown(f"**{item.title}** — {item.evidence}")
+                st.markdown(f"{marker} **{item.title}** — {item.evidence}")
                 st.caption(f"{item.period} · {item.source}")
             if len(items) > 5:
                 with st.expander("Additional observations"):
                     for item in items[5:]:
-                        st.markdown(f"**{item.title}** — {item.evidence}")
+                        st.markdown(f"{marker} **{item.title}** — {item.evidence}")
                         st.caption(f"{item.period} · {item.source}")
             if not items:
                 st.write("No evidence-backed observations available.")

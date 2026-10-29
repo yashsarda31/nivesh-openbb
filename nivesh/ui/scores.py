@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from nivesh.domain.models import AnalysisBundle
+from nivesh.ui import kit
 
 _COMPONENT_LABELS = {
     "quality": "Quality",
@@ -25,22 +26,49 @@ def render_scores(bundle: AnalysisBundle) -> None:
         st.warning("Score unavailable because no normalized financial inputs were returned.")
         return
 
-    with st.container(horizontal=True):
-        st.metric(
-            "Composite",
-            f"{scorecard.composite}/100" if scorecard.composite is not None else "—",
-            f"{scorecard.coverage:.0%} input coverage",
-            delta_color="off",
-            border=True,
-        )
-        for name, component in scorecard.components.items():
-            st.metric(
-                _COMPONENT_LABELS.get(name, name.title()),
-                f"{component.score}/100" if component.score is not None else "—",
-                f"{component.coverage:.0%} coverage",
-                delta_color="off",
-                border=True,
+    left, right = st.columns([1, 2], vertical_alignment="top")
+    with left, st.container(key="card-score-ring", height="stretch"):
+        st.markdown("**Composite**")
+        with st.container(horizontal_alignment="center"):
+            st.html(
+                kit.score_ring(scorecard.composite, size=168),
+                width="content",
             )
+        st.html(
+            kit.key_values(
+                [
+                    ("Input coverage", f"{scorecard.coverage:.0%}"),
+                    (
+                        "Eligible pillars",
+                        f"{sum(c.score is not None for c in scorecard.components.values())}"
+                        f" of {len(scorecard.components)}",
+                    ),
+                    ("Methodology", scorecard.methodology_version),
+                ]
+            )
+        )
+        st.caption("Withheld when fewer than three pillars or 60% input coverage are available.")
+    with right, st.container(key="card-score-pillars", height="stretch"):
+        st.markdown("**Pillars**")
+        st.caption(
+            "Missing inputs are excluded and weights rescale within the pillar; "
+            "they are never scored as zero."
+        )
+        st.html(
+            kit.component_bars(
+                [
+                    (
+                        _COMPONENT_LABELS.get(name, name.title()),
+                        component.score,
+                        component.coverage,
+                        f"{len(component.metrics) - len(component.excluded)} of "
+                        f"{len(component.metrics)} inputs · "
+                        f"{component.target_weight:.0%} target weight",
+                    )
+                    for name, component in scorecard.components.items()
+                ]
+            )
+        )
 
     for warning in scorecard.warnings:
         st.warning(warning, icon=":material/warning:")

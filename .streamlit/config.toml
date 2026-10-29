@@ -1,36 +1,42 @@
 [theme]
 base = "light"
 primaryColor = "#087F70"
-backgroundColor = "#F5F7FA"
+backgroundColor = "#F4F6FA"
 secondaryBackgroundColor = "#FFFFFF"
-textColor = "#14253D"
+textColor = "#0F1B2D"
+linkColor = "#087F70"
 font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-headingFontSizes = ["40px", "28px", "22px", "18px", "16px", "14px"]
+headingFont = "Inter Tight:https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&display=swap"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+headingFontSizes = ["44px", "28px", "21px", "17px", "15px", "13px"]
 headingFontWeights = [700, 700, 600, 600, 600, 600]
 baseFontSize = 14
-metricValueFontSize = "1.9rem"
+metricValueFontSize = "1.75rem"
 metricValueFontWeight = 600
-borderColor = "#DEE5ED"
-baseRadius = "10px"
-buttonRadius = "8px"
+borderColor = "#E3E8F0"
+baseRadius = "12px"
+buttonRadius = "10px"
 showWidgetBorder = true
 showSidebarBorder = false
-paddingTop = "1.5rem"
-paddingBottom = "3rem"
-dataframeHeaderBackgroundColor = "#EAF0F6"
-dataframeHeaderTextColor = "#14253D"
-chartCategoricalColors = ["#087F70", "#3979C3", "#8775B5", "#B27823", "#637083"]
+paddingTop = "1rem"
+paddingBottom = "2rem"
+dataframeHeaderBackgroundColor = "#F1F4F9"
+dataframeHeaderTextColor = "#33425A"
+greenColor = "#0A8F6A"
+redColor = "#D43F5E"
+blueColor = "#4F46E5"
+chartCategoricalColors = ["#087F70", "#4F46E5", "#0EA5E9", "#D97706", "#64748B"]
 
 [theme.sidebar]
-backgroundColor = "#102238"
-secondaryBackgroundColor = "#1B344E"
-textColor = "#EAF1FA"
-primaryColor = "#087F70"
-borderColor = "#354C63"
-linkColor = "#9CE4D6"
-codeBackgroundColor = "#1B344E"
-paddingTop = "1.5rem"
-headingFontSizes = ["32px", "24px", "20px", "16px", "14px", "12px"]
+backgroundColor = "#0A1626"
+secondaryBackgroundColor = "#13243A"
+textColor = "#DCE6F2"
+primaryColor = "#14B8A6"
+borderColor = "#22364F"
+linkColor = "#7DD3C0"
+codeBackgroundColor = "#13243A"
+paddingTop = "1.25rem"
+headingFontSizes = ["30px", "22px", "18px", "15px", "13px", "12px"]
 
 [server]
 headless = true

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Literal
 
 import streamlit as st
 
@@ -20,13 +20,22 @@ from nivesh.services.loaders import (
     load_analysis,
 )
 from nivesh.services.tickers import SymbolValidationError, resolve_symbol
+from nivesh.ui import kit
 from nivesh.ui.comparison import render_compare_action, render_comparison
 from nivesh.ui.financials import render_financials
 from nivesh.ui.notebook import render_notebook
-from nivesh.ui.overview import render_overview
+from nivesh.ui.overview import render_company_header, render_overview
 from nivesh.ui.scores import render_scores
 from nivesh.ui.styles import apply_styles
-from nivesh.ui.workspace import render_home, render_sidebar
+from nivesh.ui.workspace import RELEASE, render_hero_copy, render_home, render_sidebar
+
+_VIEW_ICONS = {
+    "Overview": ":material/dashboard:",
+    "Financials": ":material/bar_chart:",
+    "Score": ":material/speed:",
+    "Compare": ":material/compare_arrows:",
+    "Notebook": ":material/edit_note:",
+}
 
 
 def run_app() -> None:
@@ -37,13 +46,9 @@ def run_app() -> None:
     apply_styles()
     render_sidebar()
 
-    with st.container(
-        horizontal=True,
-        horizontal_alignment="distribute",
-        vertical_alignment="center",
-    ):
-        st.markdown("**RESEARCH DESK**  /  India equities")
-        st.badge("Public workspace", icon=":material/public:", color="gray")
+    bundle = st.session_state.get("current_bundle")
+    home = not isinstance(bundle, AnalysisBundle) or st.session_state.show_home
+    _render_topbar(None if home or not isinstance(bundle, AnalysisBundle) else bundle, settings)
 
     if settings.demo_mode:
         st.info(
@@ -51,7 +56,12 @@ def run_app() -> None:
             icon=":material/science:",
         )
 
-    submitted, ticker, frequency = _render_search_form()
+    if home:
+        with st.container(key="home-hero"):
+            render_hero_copy()
+            submitted, ticker, frequency = _render_search_form(compact=False)
+    else:
+        submitted, ticker, frequency = _render_search_form(compact=True)
     pending = st.session_state.pop("pending_symbol", None)
     if submitted or pending:
         _handle_analysis(pending or ticker, frequency, settings)
@@ -61,34 +71,23 @@ def run_app() -> None:
     if error:
         st.error(error, icon=":material/error:")
 
-    bundle = st.session_state.get("current_bundle")
-    if not isinstance(bundle, AnalysisBundle) or st.session_state.show_home:
+    if home or not isinstance(bundle, AnalysisBundle):
         render_home(settings.demo_mode)
+        st.html(kit.footer(_source_label(settings), RELEASE))
         return
 
-    st.caption(
-        f"COMPANY WORKSPACE  /  {bundle.symbol}  /  "
-        f"{(bundle.statements.period or 'annual').capitalize()} statements"
-    )
-    with st.container(horizontal=True, vertical_alignment="center"):
-        render_compare_action(bundle)
-        if st.button(
-            "Refresh data",
-            key="refresh-current",
-            icon=":material/refresh:",
-            type="tertiary",
-        ):
-            _refresh_current(bundle, settings)
-            st.rerun()
+    render_company_header(bundle, actions=lambda: _render_actions(bundle, settings))
     st.space("small")
     view = st.segmented_control(
         "Workspace",
-        ["Overview", "Financials", "Score", "Compare", "Notebook"],
+        list(_VIEW_ICONS),
+        format_func=lambda option: f"{_VIEW_ICONS[option]} {option}",
         key="workspace_view",
         label_visibility="collapsed",
         persist_state="session",
         width="stretch",
     )
+    st.space("small")
     if view == "Compare":
         bundles_by_symbol = st.session_state.get("analysis_bundles", {})
         render_comparison(bundles_by_symbol, st.session_state.compare_symbols)
@@ -100,6 +99,39 @@ def run_app() -> None:
         render_notebook(bundle)
     else:
         render_overview(bundle)
+    st.html(kit.footer(_source_label(settings), RELEASE))
+
+
+def _source_label(settings: AppSettings) -> str:
+    return "demo fixtures" if settings.demo_mode else settings.provider
+
+
+def _render_topbar(bundle: AnalysisBundle | None, settings: AppSettings) -> None:
+    crumbs = ["RESEARCH DESK", "India equities"]
+    if bundle is not None:
+        period = (bundle.statements.period or "annual").casefold()
+        crumbs.append(
+            "Quarterly statements" if period in {"quarter", "quarterly"} else "Annual statements"
+        )
+    pills = [
+        ("Demo data", "warn")
+        if settings.demo_mode
+        else (f"Data: {settings.provider} via OpenBB", "info"),
+        ("Public workspace", "muted"),
+    ]
+    st.html(kit.topbar(crumbs, pills, code=bundle.symbol if bundle else None))
+
+
+def _render_actions(bundle: AnalysisBundle, settings: AppSettings) -> None:
+    render_compare_action(bundle)
+    if st.button(
+        "Refresh data",
+        key="refresh-current",
+        icon=":material/refresh:",
+        type="tertiary",
+    ):
+        _refresh_current(bundle, settings)
+        st.rerun()
 
 
 def _initialize_state() -> None:
@@ -115,20 +147,18 @@ def _initialize_state() -> None:
     st.session_state.setdefault("research_notes", {})
 
 
-def _render_search_form() -> tuple[bool, str, str]:
-    with st.container(border=True):
-        search, basis = st.columns([3, 1], vertical_alignment="bottom")
-        with basis:
-            frequency = st.segmented_control(
-                "Reporting frequency",
-                ["Annual", "Quarterly"],
-                key="frequency",
-                persist_state="session",
-            )
+def _render_search_form(*, compact: bool) -> tuple[bool, str, str]:
+    """Ticker search; compact mode keeps the labels for assistive technology only."""
+    labels: Literal["visible", "collapsed"] = "collapsed" if compact else "visible"
+    with st.container(
+        key="command-bar",
+        horizontal=True,
+        vertical_alignment="bottom",
+        gap="medium",
+    ):
         with (
-            search,
-            st.form("ticker_search", border=False),
-            st.container(horizontal=True, vertical_alignment="bottom"),
+            st.form("ticker_search", border=False, width=600),
+            st.container(horizontal=True, vertical_alignment="bottom", gap="small"),
         ):
             ticker = st.text_input(
                 "NSE or BSE ticker",
@@ -136,13 +166,25 @@ def _render_search_form() -> tuple[bool, str, str]:
                 placeholder="RELIANCE, TCS.NS or 500325.BO",
                 max_chars=30,
                 persist_state="session",
+                icon=":material/search:",
+                label_visibility=labels,
             )
             submitted = st.form_submit_button(
                 "Analyze",
                 key="analyze_button",
                 type="primary",
-                icon=":material/search:",
+                icon=":material/arrow_forward:",
+                icon_position="right",
             )
+        frequency = st.segmented_control(
+            "Reporting frequency",
+            ["Annual", "Quarterly"],
+            key="frequency",
+            persist_state="session",
+            width=210,
+            wrap=True,
+            label_visibility=labels,
+        )
     return submitted, ticker, frequency or "Annual"
 
 
@@ -156,7 +198,10 @@ def _handle_analysis(ticker: str, frequency: str, settings: AppSettings) -> None
     period = frequency.casefold()
     try:
         source = "demo data" if settings.demo_mode else settings.provider
-        with st.spinner(f"Loading {resolved.symbol} from {source}..."):
+        with st.spinner(
+            f"Assembling {resolved.symbol}: prices, statements and metrics from {source}…",
+            show_time=True,
+        ):
             bundle = _load_bundle(resolved.symbol, period, settings)
     except DemoSymbolUnavailableError as exc:
         st.session_state.analysis_error = str(exc)

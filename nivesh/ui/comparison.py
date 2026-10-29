@@ -9,7 +9,7 @@ import streamlit as st
 
 from nivesh.components.financial_towers import render_financial_towers
 from nivesh.domain.models import AnalysisBundle
-from nivesh.services.comparison import build_comparison, normalized_price_frame
+from nivesh.services.comparison import ComparisonRow, build_comparison, normalized_price_frame
 from nivesh.ui.charts import comparison_figure
 
 
@@ -62,7 +62,7 @@ def render_comparison(
     for warning in payload.warnings:
         st.warning(warning, icon=":material/warning:")
 
-    with st.container(border=True):
+    with st.container(key="card-compare-prices"):
         st.markdown("**Normalized price performance**")
         st.caption(
             "All series start at 100 on their first shared positive-close date. "
@@ -78,12 +78,27 @@ def render_comparison(
                     y_title="Indexed close (common start = 100)",
                 ),
                 width="stretch",
-                config={"displaylogo": False, "responsive": True},
+                config={"displaylogo": False, "responsive": True, "displayModeBar": False},
                 key="comparison-price-chart",
             )
 
+    with st.container(key="card-compare-table"):
+        _render_fundamental_table(payload.rows)
+
+    with st.container(key="card-compare-towers"):
+        st.markdown("**Interactive score towers**")
+        st.caption(
+            "Tower height follows the selected score. Exact values remain in the table above."
+        )
+        render_financial_towers(
+            [tower.model_dump() for tower in payload.towers],
+            key="financial-towers",
+        )
+
+
+def _render_fundamental_table(rows: Sequence[ComparisonRow]) -> None:
     st.markdown("**Fundamental comparison**")
-    frame = pd.DataFrame(row.model_dump() for row in payload.rows)
+    frame = pd.DataFrame(row.model_dump() for row in rows)
     st.dataframe(
         frame[
             [
@@ -109,13 +124,6 @@ def render_comparison(
             "provider": st.column_config.TextColumn("Provider"),
             "warning": st.column_config.TextColumn("Data note"),
         },
-    )
-
-    st.markdown("**Interactive score towers**")
-    st.caption("Tower height follows the selected score. Exact values remain in the table above.")
-    render_financial_towers(
-        [tower.model_dump() for tower in payload.towers],
-        key="financial-towers",
     )
 
 

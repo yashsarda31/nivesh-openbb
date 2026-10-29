@@ -14,7 +14,7 @@ def _capture_browser_errors(page: Page) -> list[str]:
 
     def on_console(message: ConsoleMessage) -> None:
         if message.type == "error":
-            errors.append(message.text)
+            errors.append(f"{message.text} [{message.location.get('url', '')}]")
 
     page.on("console", on_console)
     page.on("pageerror", lambda error: errors.append(str(error)))
@@ -64,11 +64,15 @@ def test_demo_analysis_and_comparison(page: Page, app_url: str) -> None:
 
 
 @pytest.mark.e2e
-@pytest.mark.parametrize("width", [320, 390])
-def test_mobile_analysis_has_no_page_overflow(page: Page, app_url: str, width: int) -> None:
+@pytest.mark.parametrize("width", [320, 390, 874])
+def test_responsive_analysis_has_no_page_overflow(page: Page, app_url: str, width: int) -> None:
     errors = _capture_browser_errors(page)
     page.set_viewport_size({"width": width, "height": 844})
     page.goto(app_url, wait_until="networkidle")
+    quarterly = page.get_by_role("radio", name="Quarterly", exact=True)
+    expect(quarterly).to_be_visible()
+    bounds = quarterly.bounding_box()
+    assert bounds is not None and bounds["x"] + bounds["width"] <= width
     _analyze(page, "RELIANCE")
     expect(page.get_by_text("Reliance Industries Limited")).to_be_visible()
 

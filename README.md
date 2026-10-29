@@ -6,7 +6,9 @@ The application requires no login. Recent companies and analyst notes are held o
 
 ## What analysts can do
 
-- Start from a dedicated research home with one-click company entry and a persistent navigation rail.
+- Start from a dedicated research home with one-click company entry and a persistent navigation rail. Search the versioned NSE equity catalog by company name, or type any supported ticker.
+- Read every company through a persistent header: identity, the latest close with its change versus the prior provider close, and the composite score.
+- Scan key metrics as cards with reported-period sparklines. Deltas compare the same reporting date one year earlier and appear only when the card shows that same statement value.
 - Reopen recent company snapshots without fetching data again. The session retains up to 12 snapshots, preserving comparison members; the sidebar shows the six most recently loaded companies.
 - Filter price history to 1M, 3M, 6M, 1Y, or all available observations. Ranges use calendar days relative to the latest provider date, and displayed changes exclude dividends.
 - Record an investment thesis, risks, and next research steps in a notebook separated by company and reporting frequency. Export saved notes together with the current sourced research brief as Markdown. Notes are not shared between sessions.

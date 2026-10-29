@@ -9,10 +9,12 @@ import plotly.graph_objects as go
 
 from nivesh.domain.models import FinancialPeriod, PricePoint
 
-GRAPHITE = "#202124"
-MUTED = "#667085"
-GRID = "rgba(32, 33, 36, 0.10)"
-SERIES_COLORS = ("#0A7B66", "#2878FF", "#8A5CF6", "#D97706")
+GRAPHITE = "#0F1B2D"
+MUTED = "#5B6B82"
+GRID = "rgba(15, 27, 45, 0.07)"
+SERIES_COLORS = ("#087F70", "#4F46E5", "#0EA5E9", "#D97706")
+UP = "#0A8F6A"
+DOWN = "#D43F5E"
 
 METRIC_LABELS = {
     "revenue": "Revenue",
@@ -105,22 +107,36 @@ def price_figure(points: Sequence[PricePoint], *, symbol: str) -> go.Figure:
         return empty_figure("Price history is unavailable from the selected provider.")
 
     ordered = sorted(points, key=lambda point: point.date)
+    closes = [point.close for point in ordered]
+    color = DOWN if len(closes) > 1 and closes[-1] < closes[0] else UP
+    rgb = ",".join(str(int(color[index : index + 2], 16)) for index in (1, 3, 5))
+    low, high = min(closes), max(closes)
+    padding = (high - low) * 0.08 or high * 0.02 or 1.0
     figure = go.Figure(
         go.Scatter(
             x=[point.date for point in ordered],
-            y=[point.close for point in ordered],
+            y=closes,
             name=symbol,
             mode="lines",
-            line={"color": SERIES_COLORS[0], "width": 2.5},
+            line={"color": color, "width": 2.2, "shape": "linear"},
+            # The fill is drawn to zero but the axis range clips it, so the
+            # gradient never implies a zero-based scale.
+            fill="tozeroy",
+            fillgradient={
+                "type": "vertical",
+                "colorscale": [[0, f"rgba({rgb},0)"], [1, f"rgba({rgb},0.22)"]],
+            },
             connectgaps=False,
             customdata=[[point.volume] for point in ordered],
             hovertemplate=(
-                "%{x|%d %b %Y}<br>Close %{y:,.2f}<br>Volume %{customdata[0]:,.0f}"
-                "<extra>%{fullData.name}</extra>"
+                "%{x|%d %b %Y}<br><b>%{y:,.2f}</b> close<br>Volume %{customdata[0]:,.0f}"
+                "<extra></extra>"
             ),
         )
     )
-    return _apply_layout(figure, y_title="Close price", show_legend=False)
+    figure = _apply_layout(figure, y_title=None, show_legend=False)
+    figure.update_yaxes(range=[low - padding, high + padding], side="right")
+    return figure
 
 
 def comparison_figure(frame: pd.DataFrame, *, y_title: str) -> go.Figure:
@@ -152,17 +168,48 @@ def _apply_layout(
     show_legend: bool = True,
 ) -> go.Figure:
     figure.update_layout(
-        height=360,
-        margin={"l": 16, "r": 16, "t": 20, "b": 16},
+        height=340,
+        margin={"l": 8, "r": 8, "t": 28 if show_legend else 12, "b": 8},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font={"color": GRAPHITE, "family": "Inter, Arial, sans-serif", "size": 12},
+        font={"color": MUTED, "family": "Inter, Arial, sans-serif", "size": 11.5},
         hovermode="x unified",
         showlegend=show_legend,
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "x": 0,
+            "font": {"color": GRAPHITE, "size": 12},
+            "itemsizing": "constant",
+        },
         yaxis_title=y_title,
-        hoverlabel={"bgcolor": "white", "font_color": GRAPHITE},
+        hoverlabel={
+            "bgcolor": "white",
+            "bordercolor": "#E3E8F0",
+            "font": {"color": GRAPHITE, "family": "Inter, Arial, sans-serif", "size": 12},
+        },
+        barcornerradius=4,
+        bargap=0.28,
+        bargroupgap=0.08,
     )
-    figure.update_xaxes(showgrid=False, zeroline=False)
-    figure.update_yaxes(gridcolor=GRID, zeroline=False)
+    figure.update_xaxes(
+        showgrid=False,
+        zeroline=False,
+        showline=True,
+        linecolor="#E3E8F0",
+        ticks="",
+        showspikes=True,
+        spikemode="across",
+        spikesnap="cursor",
+        spikethickness=1,
+        spikedash="dot",
+        spikecolor="#94A3B8",
+    )
+    figure.update_yaxes(
+        gridcolor=GRID,
+        zeroline=False,
+        ticks="",
+        title_font={"size": 11.5, "color": MUTED},
+    )
     return figure
