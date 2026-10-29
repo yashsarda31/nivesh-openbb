@@ -64,9 +64,10 @@ def test_demo_analysis_and_comparison(page: Page, app_url: str) -> None:
 
 
 @pytest.mark.e2e
-def test_mobile_analysis_has_no_page_overflow(page: Page, app_url: str) -> None:
+@pytest.mark.parametrize("width", [320, 390])
+def test_mobile_analysis_has_no_page_overflow(page: Page, app_url: str, width: int) -> None:
     errors = _capture_browser_errors(page)
-    page.set_viewport_size({"width": 390, "height": 844})
+    page.set_viewport_size({"width": width, "height": 844})
     page.goto(app_url, wait_until="networkidle")
     _analyze(page, "RELIANCE")
     expect(page.get_by_text("Reliance Industries Limited")).to_be_visible()
@@ -75,6 +76,35 @@ def test_mobile_analysis_has_no_page_overflow(page: Page, app_url: str) -> None:
         "document.documentElement.scrollWidth > document.documentElement.clientWidth"
     )
     assert has_overflow is False
+    assert errors == []
+
+
+@pytest.mark.e2e
+def test_quick_start_notebook_and_price_ranges(page: Page, app_url: str) -> None:
+    errors = _capture_browser_errors(page)
+    page.goto(app_url, wait_until="networkidle")
+    page.get_by_role("button", name="Research TCS", exact=True).click()
+    expect(page.get_by_text("Tata Consultancy Services Limited", exact=True)).to_be_visible()
+    page.get_by_role("radio", name="1M", exact=True).click()
+    expect(page.get_by_text("Historical close; excludes dividends.", exact=False)).to_be_visible()
+    page.get_by_role("radio", name="Notebook", exact=True).click()
+    page.get_by_label("Investment thesis", exact=True).fill("Verify durable cash conversion.")
+    page.get_by_label("Risks to the thesis", exact=True).fill("Monitor client concentration.")
+    page.get_by_role("button", name="Save notes", exact=False).click()
+    expect(page.get_by_text("Notes saved for this session.", exact=True)).to_be_visible()
+    with page.expect_download() as downloaded:
+        page.get_by_role("button", name="Download notebook (Markdown)", exact=False).click()
+    saved = downloaded.value.path()
+    assert saved is not None
+    text = saved.read_text(encoding="utf-8")
+    assert "Verify durable cash conversion." in text
+    assert "Monitor client concentration." in text
+    assert "DEMO" in text and "TCS.NS" in text
+    page.get_by_role("radio", name="Overview", exact=True).click()
+    page.get_by_role("radio", name="Notebook", exact=True).click()
+    expect(page.get_by_label("Investment thesis", exact=True)).to_have_value(
+        "Verify durable cash conversion."
+    )
     assert errors == []
 
 

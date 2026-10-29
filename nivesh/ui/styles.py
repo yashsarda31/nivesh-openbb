@@ -1,4 +1,4 @@
-"""Small, scoped visual refinements for the requested Apple-like interface."""
+"""Existing touch-target and reduced-motion refinements over the native theme."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def apply_styles() -> None:
           --nivesh-border: rgba(29, 29, 31, 0.10);
           --nivesh-radius: 18px;
         }
-        .stMainBlockContainer { max-width: 1440px; padding-top: 2.25rem; }
+        .stMainBlockContainer { max-width: 1440px; }
         [data-testid="stMetric"] {
           min-width: 10.5rem;
           box-shadow: 0 10px 32px rgba(29, 29, 31, 0.045);
@@ -32,7 +32,6 @@ def apply_styles() -> None:
         [data-testid="stTextInput"] input { min-height: 44px; }
         .stPlotlyChart { border-radius: var(--nivesh-radius); overflow: hidden; }
         @media (max-width: 640px) {
-          .stMainBlockContainer { padding-top: 1.25rem; }
           [data-testid="stMetric"] { min-width: 9.25rem; }
         }
         @media (prefers-reduced-motion: reduce) {

@@ -22,9 +22,11 @@ from nivesh.services.loaders import (
 from nivesh.services.tickers import SymbolValidationError, resolve_symbol
 from nivesh.ui.comparison import render_compare_action, render_comparison
 from nivesh.ui.financials import render_financials
+from nivesh.ui.notebook import render_notebook
 from nivesh.ui.overview import render_overview
 from nivesh.ui.scores import render_scores
 from nivesh.ui.styles import apply_styles
+from nivesh.ui.workspace import render_home, render_sidebar
 
 
 def run_app() -> None:
@@ -33,15 +35,15 @@ def run_app() -> None:
     settings = AppSettings.from_mapping(os.environ)
     _initialize_state()
     apply_styles()
+    render_sidebar()
 
     with st.container(
         horizontal=True,
         horizontal_alignment="distribute",
         vertical_alignment="center",
     ):
-        st.title("Nivesh")
-        st.badge("Public analyst workspace", icon=":material/public:", color="green")
-    st.caption("India fundamental intelligence · OpenBB foundation · no login required")
+        st.markdown("**RESEARCH DESK**  /  India equities")
+        st.badge("Public workspace", icon=":material/public:", color="gray")
 
     if settings.demo_mode:
         st.info(
@@ -50,18 +52,24 @@ def run_app() -> None:
         )
 
     submitted, ticker, frequency = _render_search_form()
-    if submitted:
-        _handle_analysis(ticker, frequency, settings)
+    pending = st.session_state.pop("pending_symbol", None)
+    if submitted or pending:
+        _handle_analysis(pending or ticker, frequency, settings)
+        st.rerun()
 
     error = st.session_state.get("analysis_error")
     if error:
         st.error(error, icon=":material/error:")
 
     bundle = st.session_state.get("current_bundle")
-    if not isinstance(bundle, AnalysisBundle):
-        _render_empty_state(settings.demo_mode)
+    if not isinstance(bundle, AnalysisBundle) or st.session_state.show_home:
+        render_home(settings.demo_mode)
         return
 
+    st.caption(
+        f"COMPANY WORKSPACE  /  {bundle.symbol}  /  "
+        f"{(bundle.statements.period or 'annual').capitalize()} statements"
+    )
     with st.container(horizontal=True, vertical_alignment="center"):
         render_compare_action(bundle)
         if st.button(
@@ -71,16 +79,15 @@ def run_app() -> None:
             type="tertiary",
         ):
             _refresh_current(bundle, settings)
-            refreshed = st.session_state.get("current_bundle")
-            if isinstance(refreshed, AnalysisBundle):
-                bundle = refreshed
+            st.rerun()
     st.space("small")
     view = st.segmented_control(
         "Workspace",
-        ["Overview", "Financials", "Score", "Compare"],
+        ["Overview", "Financials", "Score", "Compare", "Notebook"],
         key="workspace_view",
         label_visibility="collapsed",
         persist_state="session",
+        width="stretch",
     )
     if view == "Compare":
         bundles_by_symbol = st.session_state.get("analysis_bundles", {})
@@ -89,6 +96,8 @@ def run_app() -> None:
         render_financials(bundle)
     elif view == "Score":
         render_scores(bundle)
+    elif view == "Notebook":
+        render_notebook(bundle)
     else:
         render_overview(bundle)
 
@@ -102,31 +111,38 @@ def _initialize_state() -> None:
     st.session_state.setdefault("current_bundle", None)
     st.session_state.setdefault("analysis_bundles", {})
     st.session_state.setdefault("workspace_view", "Overview")
+    st.session_state.setdefault("show_home", True)
+    st.session_state.setdefault("research_notes", {})
 
 
 def _render_search_form() -> tuple[bool, str, str]:
-    with st.form("ticker_search", border=False), st.container(
-        horizontal=True, vertical_alignment="bottom"
-    ):
-        ticker = st.text_input(
-            "NSE or BSE ticker",
-            key="ticker_input",
-            placeholder="RELIANCE, TCS.NS or 500325.BO",
-            max_chars=30,
-            persist_state="session",
-        )
-        frequency = st.segmented_control(
-            "Reporting frequency",
-            ["Annual", "Quarterly"],
-            key="frequency",
-            persist_state="session",
-        )
-        submitted = st.form_submit_button(
-            "Analyze",
-            key="analyze_button",
-            type="primary",
-            icon=":material/search:",
-        )
+    with st.container(border=True):
+        search, basis = st.columns([3, 1], vertical_alignment="bottom")
+        with basis:
+            frequency = st.segmented_control(
+                "Reporting frequency",
+                ["Annual", "Quarterly"],
+                key="frequency",
+                persist_state="session",
+            )
+        with (
+            search,
+            st.form("ticker_search", border=False),
+            st.container(horizontal=True, vertical_alignment="bottom"),
+        ):
+            ticker = st.text_input(
+                "NSE or BSE ticker",
+                key="ticker_input",
+                placeholder="RELIANCE, TCS.NS or 500325.BO",
+                max_chars=30,
+                persist_state="session",
+            )
+            submitted = st.form_submit_button(
+                "Analyze",
+                key="analyze_button",
+                type="primary",
+                icon=":material/search:",
+            )
     return submitted, ticker, frequency or "Annual"
 
 
@@ -154,10 +170,20 @@ def _handle_analysis(ticker: str, frequency: str, settings: AppSettings) -> None
     st.session_state.active_symbol = resolved.symbol
     st.session_state.current_bundle = bundle
     bundles = dict(st.session_state.analysis_bundles)
+    bundles.pop(resolved.symbol, None)
     bundles[resolved.symbol] = bundle
+    # Bound retained financial snapshots; comparison members stay available.
+    while len(bundles) > 12:
+        oldest = next(
+            symbol
+            for symbol in bundles
+            if symbol not in st.session_state.compare_symbols and symbol != resolved.symbol
+        )
+        del bundles[oldest]
     st.session_state.analysis_bundles = bundles
     st.session_state.analysis_error = None
     st.session_state.workspace_view = "Overview"
+    st.session_state.show_home = False
 
 
 def _load_bundle(symbol: str, period: str, settings: AppSettings) -> AnalysisBundle:
@@ -201,14 +227,3 @@ def _openbb_secrets() -> Mapping[str, Any]:
     except Exception:
         return {}
     return section if isinstance(section, Mapping) else {}
-
-
-def _render_empty_state(demo_mode: bool) -> None:
-    with st.container(border=True):
-        st.subheader("Start with an Indian listed company")
-        st.write(
-            "Enter an NSE symbol or six-digit BSE code to inspect financial history, "
-            "ratios, valuation and score coverage."
-        )
-        examples = "RELIANCE or TCS" if demo_mode else "RELIANCE, TCS.NS or 500325.BO"
-        st.caption(f"Examples: {examples}")

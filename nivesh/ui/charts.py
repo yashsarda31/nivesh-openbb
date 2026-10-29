@@ -156,7 +156,7 @@ def _apply_layout(
         margin={"l": 16, "r": 16, "t": 20, "b": 16},
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font={"color": GRAPHITE, "family": "Arial, sans-serif", "size": 13},
+        font={"color": GRAPHITE, "family": "Inter, Arial, sans-serif", "size": 12},
         hovermode="x unified",
         showlegend=show_legend,
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},

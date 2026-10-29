@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pandas as pd
@@ -11,6 +11,7 @@ import streamlit as st
 from nivesh.domain.models import (
     AnalysisBundle,
     DatasetResult,
+    PricePoint,
 )
 from nivesh.services.fundamentals import ALIASES, fundamental_inputs
 from nivesh.ui.charts import price_figure
@@ -48,25 +49,39 @@ def render_overview(bundle: AnalysisBundle) -> None:
     )
     if pe_value is not None and pe_value <= 0:
         pe_value = None
-    with st.container(horizontal=True):
-        st.metric("Nivesh score", _format_score(score), border=True)
-        st.metric(
+    cards = [
+        (
+            "Nivesh score",
+            _format_score(score),
+            "A research score, not a recommendation. Review input coverage in Score.",
+        ),
+        (
             "Revenue",
             _format_money(latest.revenue if latest else None, profile.currency),
-            border=True,
-        )
-        st.metric("ROE", _format_percent(ratios.get("roe")), border=True)
-        st.metric(
+            f"Revenue for the latest reported {frequency} period; not necessarily TTM.",
+        ),
+        ("ROE", _format_percent(ratios.get("roe")), "Return on equity; see the basis below."),
+        (
             "Operating margin",
             _format_percent(ratios.get("operating_margin")),
-            border=True,
-        )
-        st.metric("P/E", _format_pe(pe_value, derived=pe_derived), border=True)
-        st.metric(
+            "Operating income divided by revenue for the reported period.",
+        ),
+        (
+            "P/E",
+            _format_pe(pe_value, derived=pe_derived),
+            "Provider multiple, or a statement-derived estimate marked with ≈.",
+        ),
+        (
             "Debt / equity",
             _format_multiple(ratios.get("debt_equity")),
-            border=True,
-        )
+            "Total debt relative to equity; not a bank capital-adequacy measure.",
+        ),
+    ]
+    for start in (0, 3):
+        for column, (label, value, help_text) in zip(
+            st.columns(3), cards[start : start + 3], strict=True
+        ):
+            column.metric(label, value, help=help_text, border=True)
 
     roe_basis = (
         "TTM with average year-ago equity"
@@ -77,26 +92,33 @@ def render_overview(bundle: AnalysisBundle) -> None:
         f"{frequency} · latest period {latest.period_ending if latest else 'unknown'} · "
         f"{bundle.statements.provider} · ROE basis: {roe_basis}"
     )
-    render_research(bundle)
     left, right = st.columns([2, 1], vertical_alignment="top")
     with left, st.container(border=True):
-        st.markdown("**Price history**")
-        st.caption(_dataset_caption(bundle.prices))
-        st.plotly_chart(
-            price_figure(bundle.prices.data, symbol=bundle.symbol),
-            width="stretch",
-            config={"displaylogo": False, "responsive": True},
-            key=f"price-{bundle.symbol}",
-        )
+        render_price_history(bundle)
     with right, st.container(border=True, height="stretch"):
+        st.markdown("**Research readiness**")
+        datasets = (bundle.profile, bundle.prices, bundle.statements, bundle.metrics)
+        if any(ds.stale for ds in datasets):
+            st.badge("Older source records", icon=":material/schedule:", color="orange")
+        elif any(ds.coverage < 1 or ds.as_of is None for ds in datasets):
+            st.badge("Review data gaps", icon=":material/info:", color="orange")
+        else:
+            st.badge("Source dates available", icon=":material/fact_check:", color="green")
+        if bundle.scorecard:
+            st.progress(
+                bundle.scorecard.coverage,
+                text=f"{bundle.scorecard.coverage:.0%} score input coverage",
+            )
+        st.caption("Coverage measures available inputs, not confidence or investment quality.")
         st.markdown("**Company context**")
-        st.write(profile.description or "Company description unavailable from provider.")
         st.caption(
             "Industry: "
             + (profile.industry or "Unavailable")
             + "\n\nMarket cap: "
             + _format_money(profile.market_cap, profile.currency)
         )
+        with st.expander("About the business"):
+            st.write(profile.description or "Company description unavailable from provider.")
         if profile.website:
             st.link_button(
                 "Company website",
@@ -106,6 +128,56 @@ def render_overview(bundle: AnalysisBundle) -> None:
             )
 
     render_data_health(bundle)
+    render_research(bundle)
+
+
+def price_window(points: list[PricePoint], window: str) -> list[PricePoint]:
+    """Filter calendar-day windows relative to the latest available observation."""
+    ordered = sorted(points, key=lambda point: _price_date(point))
+    days = {"1M": 30, "3M": 90, "6M": 180, "1Y": 365}.get(window)
+    if not ordered or days is None:
+        return ordered
+    start = _price_date(ordered[-1]) - timedelta(days=days)
+    return [point for point in ordered if _price_date(point) >= start]
+
+
+def _price_date(point: PricePoint) -> date:
+    return point.date.date() if isinstance(point.date, datetime) else point.date
+
+
+@st.fragment
+def render_price_history(bundle: AnalysisBundle) -> None:
+    """Range changes rerun this chart only and never fetch provider data."""
+    st.markdown("**Price history**")
+    window = st.segmented_control(
+        "Price range",
+        ["1M", "3M", "6M", "1Y", "All"],
+        default="1Y",
+        key=f"price-range-{bundle.symbol}",
+        label_visibility="collapsed",
+    )
+    points = price_window(bundle.prices.data, window or "1Y")
+    if points:
+        first, last = points[0], points[-1]
+        change = last.close / first.close - 1 if first.close > 0 and len(points) > 1 else None
+        currency = bundle.prices.currency or bundle.profile.data.currency or ""
+        change_text = (
+            f"{change:+.2%} over selected observations"
+            if change is not None
+            else "Change unavailable"
+        )
+        st.markdown(f"**{currency} {last.close:,.2f}** · {change_text}")
+        st.caption(
+            f"{_price_date(first):%d %b %Y} – {_price_date(last):%d %b %Y} · "
+            "Historical close; excludes dividends. Ranges end at the latest available observation."
+        )
+    st.caption(_dataset_caption(bundle.prices))
+    st.plotly_chart(
+        price_figure(points, symbol=bundle.symbol),
+        width="stretch",
+        config={"displaylogo": False, "responsive": True},
+        key=f"price-{bundle.symbol}",
+    )
 
 
 def render_data_health(bundle: AnalysisBundle) -> None:

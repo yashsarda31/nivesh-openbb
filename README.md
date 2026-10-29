@@ -2,10 +2,14 @@
 
 Nivesh is a public, India-first fundamental-analysis workspace for experienced analysts. It combines OpenBB-backed data retrieval, normalized annual and quarterly financials, transparent coverage-aware scores, exact Plotly charts, and a locally bundled Three.js/GSAP comparison view.
 
-The application requires no login and stores no personal information. It is research support, not investment advice or a recommendation to buy or sell any security.
+The application requires no login. Recent companies and analyst notes are held only in the user's Streamlit session, with no persistent account or notes database. Download notes before closing or reloading the app. It is research support, not investment advice or a recommendation to buy or sell any security.
 
 ## What analysts can do
 
+- Start from a dedicated research home with one-click company entry and a persistent navigation rail.
+- Reopen recent company snapshots without fetching data again. The session retains up to 12 snapshots, preserving comparison members; the sidebar shows the six most recently loaded companies.
+- Filter price history to 1M, 3M, 6M, 1Y, or all available observations. Ranges use calendar days relative to the latest provider date, and displayed changes exclude dividends.
+- Record an investment thesis, risks, and next research steps in a notebook separated by company and reporting frequency. Export saved notes together with the current sourced research brief as Markdown. Notes are not shared between sessions.
 - Resolve bare NSE symbols such as `RELIANCE`, explicit `.NS` symbols, and six-digit BSE codes such as `500325.BO`.
 - Inspect company identity, price history, reported financials, margins, returns, leverage, liquidity, cash generation, and supported valuation metrics.
 - Read statement-backed Pros and Cons, comparable year-on-year changes and neutral valuation context for every analyzed stock. Each observation shows its numbers, reporting basis and provider; missing evidence stays separate from business weaknesses.

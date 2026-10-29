@@ -1,15 +1,36 @@
 [theme]
 base = "light"
-primaryColor = "#0A7B66"
-backgroundColor = "#F7F7F5"
+primaryColor = "#087F70"
+backgroundColor = "#F5F7FA"
 secondaryBackgroundColor = "#FFFFFF"
-textColor = "#1D1D1F"
-font = "sans-serif"
-borderColor = "#D8DADC"
-baseRadius = "large"
-buttonRadius = "full"
+textColor = "#14253D"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+headingFontSizes = ["40px", "28px", "22px", "18px", "16px", "14px"]
+headingFontWeights = [700, 700, 600, 600, 600, 600]
+baseFontSize = 14
+metricValueFontSize = "1.9rem"
+metricValueFontWeight = 600
+borderColor = "#DEE5ED"
+baseRadius = "10px"
+buttonRadius = "8px"
 showWidgetBorder = true
-chartCategoricalColors = ["#0A7B66", "#2878FF", "#8A5CF6", "#D97706", "#637083"]
+showSidebarBorder = false
+paddingTop = "1.5rem"
+paddingBottom = "3rem"
+dataframeHeaderBackgroundColor = "#EAF0F6"
+dataframeHeaderTextColor = "#14253D"
+chartCategoricalColors = ["#087F70", "#3979C3", "#8775B5", "#B27823", "#637083"]
+
+[theme.sidebar]
+backgroundColor = "#102238"
+secondaryBackgroundColor = "#1B344E"
+textColor = "#EAF1FA"
+primaryColor = "#087F70"
+borderColor = "#354C63"
+linkColor = "#9CE4D6"
+codeBackgroundColor = "#1B344E"
+paddingTop = "1.5rem"
+headingFontSizes = ["32px", "24px", "20px", "16px", "14px", "12px"]
 
 [server]
 headless = true
